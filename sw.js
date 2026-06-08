@@ -1,5 +1,5 @@
 // Service worker — cache offline-first pour que l'app marche sans réseau.
-const CACHE = 'ironforge-v2';
+const CACHE = 'ironforge-v3';
 const ASSETS = [
   './',
   './index.html',

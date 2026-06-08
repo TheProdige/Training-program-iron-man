@@ -19,6 +19,30 @@ let coachBusy = false; // une requête coach en cours
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+const isSimple = () => getState().profile.simpleMode !== false;
+
+// Objectif du moment en langage simple, selon la phase du programme.
+function plainPhase(key) {
+  return {
+    hypertrophy: 'On construit du muscle 💪 (et un peu de cardio facile)',
+    strength: 'On gagne en force et on monte le cardio',
+    specific: 'On met le paquet sur le cardio (triathlon)',
+    peak: 'On peaufine la forme avant l\'objectif'
+  }[key] || 'On progresse, étape par étape';
+}
+function plainPhaseShort(key) {
+  return { hypertrophy: '💪 Muscle', strength: '💪 Force + cardio', specific: '🏊 Cardio', peak: '🏁 Affûtage' }[key] || key;
+}
+// Intensité d'une séance de cardio expliquée simplement.
+function plainEffort(zone) {
+  return {
+    Z2: 'tranquille — tu dois pouvoir discuter en même temps',
+    Z3: 'soutenu — tu parles juste par petites phrases',
+    Z4: 'dur — par intervalles, tu récupères entre les efforts',
+    Z5: 'très dur — efforts courts et intenses'
+  }[zone] || 'à ton aise';
+}
+
 export function mount(r) {
   route = r || route;
   mountEl = document.getElementById('app');
@@ -40,71 +64,41 @@ function updateChrome(st, activeRoute) {
     const macro = buildMacro(st);
     const w = currentWeekIndex(st);
     const ctx = loadingContext(macro, w);
-    pill.textContent = `${ctx.phase.name} · S${ctx.wInPhase + 1}/${ctx.phase.weeks}`;
-  } else pill.textContent = 'Configuration';
+    pill.textContent = isSimple() ? `Semaine ${w + 1}` : `${ctx.phase.name} · S${ctx.wInPhase + 1}/${ctx.phase.weeks}`;
+  } else pill.textContent = 'Bienvenue';
   document.querySelectorAll('.tab').forEach((t) =>
     t.classList.toggle('active', t.dataset.route === activeRoute));
 }
 
 // ============================================================ ONBOARDING
 function viewOnboarding(st) {
-  const p = st.profile, m = p.metrics, l = p.lifts1rm;
+  const p = st.profile;
   return `
-  <h1 class="screen-title">🔥 Bienvenue dans IRONFORGE</h1>
-  <div class="notice">
-    Le système <b>ne suppose rien sur ta forme</b>. Tu rentres tes vrais repères ci-dessous
-    (ou tu laisses les valeurs par défaut), il <b>démarre conservateur</b> et s'auto-calibre
-    ensuite à partir de ce que tu logges réellement + ton ressenti du jour. Aucune donnée ne quitte ton téléphone.
+  <h1 class="screen-title">🔥 Bienvenue !</h1>
+  <div class="notice ok">
+    Je te prépare un programme <b>Ironman + muscu</b>, en commençant <b>doucement</b>.
+    Pas de chiffres compliqués : chaque jour, l'app te dit simplement <b>quoi faire</b>.
+    Tu peux démarrer tout de suite. 💪
   </div>
   <form id="onboardForm">
     <div class="card">
-      <h3>Toi</h3>
-      <label>Prénom</label><input name="name" value="${esc(p.name)}" placeholder="Ton prénom" />
+      <label>Ton prénom (facultatif)</label>
+      <input name="name" value="${esc(p.name)}" placeholder="Ton prénom" />
+    </div>
+    <div class="card">
+      <h3>Combien de jours par semaine ?</h3>
       <div class="grid3">
-        <div><label>Poids (kg)</label><input name="bodyweightKg" type="number" step="0.5" value="${p.bodyweightKg}" /></div>
-        <div><label>Taille (cm)</label><input name="heightCm" type="number" value="${p.heightCm}" /></div>
-        <div><label>Âge</label><input name="age" type="number" value="${p.age}" /></div>
+        ${[3, 4, 5].map((n) => `
+          <label style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:10px;padding:12px;cursor:pointer">
+            <input type="radio" name="daysPerWeek" value="${n}" ${(+p.daysPerWeek || 5) === n ? 'checked' : ''} style="width:auto" /> ${n} jours
+          </label>`).join('')}
       </div>
     </div>
-    <div class="card">
-      <h3>Objectif course</h3>
-      <div class="grid2">
-        <div><label>Type</label>
-          <select name="raceType">
-            <option value="70.3" ${p.raceType === '70.3' ? 'selected' : ''}>Ironman 70.3 (demi)</option>
-            <option value="full" ${p.raceType === 'full' ? 'selected' : ''}>Ironman complet</option>
-          </select>
-        </div>
-        <div><label>Date de course</label><input name="raceDate" type="date" value="${p.raceDate || defaultRaceDate()}" /></div>
-      </div>
-      <label>Jours d'entraînement / semaine</label>
-      <select name="daysPerWeek">
-        ${[4, 5, 6].map((n) => `<option value="${n}" ${p.daysPerWeek === n ? 'selected' : ''}>${n} jours</option>`).join('')}
-      </select>
-      <p class="small muted">Le plan est calé sur 5 j/sem (4 muscu + endurance, ou 2-3 muscu + endurance selon la phase).</p>
-    </div>
-    <div class="card">
-      <h3>Repères de performance <span class="muted">(approx. ok, ajustables après)</span></h3>
-      <div class="grid2">
-        <div><label>FTP vélo (W)</label><input name="ftpWatts" type="number" value="${m.ftpWatts}" /></div>
-        <div><label>CSS natation (sec/100m)</label><input name="swimCss" type="number" value="${m.swimCss}" /></div>
-        <div><label>Allure seuil course (sec/km)</label><input name="runThreshold" type="number" value="${m.runThreshold}" /><span class="small muted">${paceStr(m.runThreshold)}</span></div>
-        <div><label>FC max / FC repos</label>
-          <div class="grid2"><input name="maxHr" type="number" value="${m.maxHr}" /><input name="restHr" type="number" value="${m.restHr}" /></div>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <h3>Tes maxis muscu (1RM estimé, kg)</h3>
-      <p class="small muted">Pas sûr ? Mets une estimation prudente. Le moteur partira à ~90% et montera selon tes séances.</p>
-      <div class="grid2">
-        ${MAIN_LIFTS.map((n) => `<div><label>${esc(n)}</label><input name="orm_${esc(n)}" type="number" step="2.5" value="${l[n] || ''}" /></div>`).join('')}
-      </div>
-    </div>
-    <button class="btn" type="submit" data-action="start-program">🚀 Démarrer mon programme</button>
+    <button class="btn" type="submit" data-action="start-program">🚀 C'est parti !</button>
+    <p class="small muted center" style="margin-top:10px">Tu pourras tout régler plus tard dans Profil.</p>
   </form>`;
 }
-function defaultRaceDate() { return addDaysISO(todayISO(), 7 * 40); }
+
 
 // ============================================================ TODAY
 function viewToday(st) {
@@ -115,22 +109,41 @@ function viewToday(st) {
   const acwr = computeACWR(st);
   const done = st.sessions.filter((s) => s.date === todayISO());
   const rd = READINESS[vs.readiness];
-
-  let badges = `<span class="badge ${ctx.phase.key}">${esc(ctx.phase.emphasis)}</span>`;
-  if (ctx.taper) badges += ` <span class="badge deload">AFFÛTAGE</span>`;
-  else if (ctx.isDeload) badges += ` <span class="badge deload">DELOAD</span>`;
+  const simple = isSimple();
 
   const sessHtml = dp.sessions.map((s) => sessionCard(s, true)).join('');
 
+  // Bloc en-tête : simple ou détaillé.
+  let header;
+  if (simple) {
+    header = `<div class="card">
+      <h2>${esc(plainPhase(ctx.phase.key))}</h2>
+      <div class="small muted" style="margin-top:6px">${ctx.isDeload || ctx.taper ? 'Semaine plus légère : on récupère 😌' : 'Semaine d\'entraînement normale'}</div>
+    </div>`;
+  } else {
+    let badges = `<span class="badge ${ctx.phase.key}">${esc(ctx.phase.emphasis)}</span>`;
+    if (ctx.taper) badges += ` <span class="badge deload">AFFÛTAGE</span>`;
+    else if (ctx.isDeload) badges += ` <span class="badge deload">DELOAD</span>`;
+    header = `<div class="card">
+      <div><h2>${esc(ctx.phase.name)}</h2><div class="small muted">Semaine ${dp.weekIdx + 1} / ${tw} du macrocycle · ${badges}</div></div>
+      <div class="small muted" style="margin-top:8px">${esc(ctx.phase.focus)}</div>
+      ${ctx.weeksToRace >= 0 ? `<div class="small" style="margin-top:8px">🏁 <b>${ctx.weeksToRace}</b> semaines avant la course</div>` : ''}
+    </div>`;
+  }
+
+  // Avertissement fatigue (simple), seulement si la charge grimpe vite.
+  let loadNote = '';
+  if (simple) {
+    if (acwr.status === 'high') loadNote = `<div class="notice danger">⚠️ Tu en fais beaucoup ces jours-ci. Vas-y mollo et dors bien. 😴</div>`;
+    else if (acwr.status === 'watch') loadNote = `<div class="notice">Tu montes en charge — pense à bien manger et dormir. 👍</div>`;
+  } else {
+    loadNote = `<div class="notice ${acwr.status === 'high' ? 'danger' : acwr.status === 'ok' ? 'ok' : ''}">
+      <b>Charge (ACWR ${acwr.ratio || '—'})</b> · aiguë 7j ${acwr.acute} / chronique ${acwr.chronic}<br/>${esc(acwr.advice)}</div>`;
+  }
+
   return `
   <h1 class="screen-title">${DAY_NAMES[dp.weekday]} <span class="muted small">· ${fmtDate(todayISO())}</span></h1>
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-      <div><h2>${esc(ctx.phase.name)}</h2><div class="small muted">Semaine ${dp.weekIdx + 1} / ${tw} du macrocycle · ${badges}</div></div>
-    </div>
-    <div class="small muted" style="margin-top:8px">${esc(ctx.phase.focus)}</div>
-    ${ctx.weeksToRace >= 0 ? `<div class="small" style="margin-top:8px">🏁 <b>${ctx.weeksToRace}</b> semaines avant la course</div>` : ''}
-  </div>
+  ${header}
 
   <div class="card">
     <h3>Comment tu te sens aujourd'hui&nbsp;?</h3>
@@ -138,17 +151,14 @@ function viewToday(st) {
       ${Object.entries(READINESS).map(([k, v]) =>
         `<button class="btn ${k === vs.readiness ? '' : 'secondary'} small" data-action="readiness" data-key="${k}" style="flex-direction:column;font-size:11px;padding:8px 4px">${v.label}</button>`).join('')}
     </div>
-    <div class="small muted" style="margin-top:8px">${esc(rd.note)} ${vs.readiness !== 'good' ? `<b>(×${rd.factor})</b>` : ''}</div>
+    <div class="small muted" style="margin-top:8px">${esc(rd.note)}</div>
   </div>
 
-  <div class="notice ${acwr.status === 'high' ? 'danger' : acwr.status === 'ok' ? 'ok' : ''}">
-    <b>Charge (ACWR ${acwr.ratio || '—'})</b> · aiguë 7j ${acwr.acute} / chronique ${acwr.chronic}<br/>${esc(acwr.advice)}
-  </div>
+  ${loadNote}
+  ${done.length ? `<div class="notice ok">✅ Séance faite aujourd'hui. Bravo ! 🎉</div>` : ''}
 
-  ${done.length ? `<div class="notice ok">✅ ${done.length} séance(s) loggée(s) aujourd'hui. Bien joué.</div>` : ''}
-
-  <h3 style="margin:18px 0 8px;color:var(--muted)">Au programme aujourd'hui</h3>
-  ${sessHtml || '<div class="empty">Repos</div>'}`;
+  <h3 style="margin:18px 0 8px;color:var(--muted)">Ta séance d'aujourd'hui</h3>
+  ${sessHtml || '<div class="empty">Repos 😴</div>'}`;
 }
 
 function sessionCard(s, withLog) {
@@ -156,10 +166,18 @@ function sessionCard(s, withLog) {
     return `<div class="card acc-rest"><div class="sess"><div class="ic">😴</div><div class="body"><div class="t">Repos / récupération</div><div class="d">Mobilité, marche, sommeil. La récup, c'est là que les gains se construisent.</div></div></div></div>`;
   }
   const ic = DISCIPLINE_ICON[s.kind];
+  const simple = isSimple();
   let body = '';
   if (s.kind === 'lift') {
-    body = `<ul class="ex-list">${s.exercises.map((e) =>
-      `<li><span>${esc(e.name)}${e.main ? ' ⭐' : ''}${e.advice ? `<br/><span class="small muted">${esc(e.advice)}</span>` : ''}</span><span class="prescr">${esc(e.prescription)}</span></li>`).join('')}</ul>`;
+    const cue = simple ? `<div class="notice" style="margin:0 0 8px;padding:9px 11px">💡 Prends un poids où les <b>2-3 dernières reps sont dures</b>. Trop facile&nbsp;? Monte un peu la prochaine fois. Garde le dos droit, et arrête si ça fait mal.</div>` : '';
+    body = cue + `<ul class="ex-list">${s.exercises.map((e) => {
+      const reps = `${e.sets} séries de ${e.rep[0]}-${e.rep[1]}`;
+      const right = simple ? reps : esc(e.prescription);
+      const advice = (!simple && e.advice) ? `<br/><span class="small muted">${esc(e.advice)}</span>` : '';
+      return `<li><span>${esc(e.name)}${(!simple && e.main) ? ' ⭐' : ''}${advice}</span><span class="prescr">${right}</span></li>`;
+    }).join('')}</ul>`;
+  } else if (simple) {
+    body = `<div class="d">⏱️ ${s.durMin} min · <b>${esc(plainEffort(s.zone))}</b></div>`;
   } else {
     const t = s.targets || {};
     body = `<div class="d">⏱️ ${s.durMin} min · zone ${s.zone}</div>
@@ -206,25 +224,30 @@ function viewPlan(st) {
     </div>`;
   }).join('');
 
+  const simple = isSimple();
+  const subLine = simple
+    ? `${esc(plainPhase(ctx.phase.key))}${ctx.isDeload ? ' · semaine légère 😌' : ''}`
+    : `${esc(ctx.phase.name)} · S${ctx.wInPhase + 1}/${ctx.phase.weeks} ${ctx.isDeload ? '· <span style="color:var(--gold)">DELOAD</span>' : ''}`;
+
   return `
-  <h1 class="screen-title">🗺️ Plan</h1>
+  <h1 class="screen-title">🗺️ ${simple ? 'Ma semaine' : 'Plan'}</h1>
   <div class="card">
-    <h3>Macrocycle (${tw} semaines)</h3>
+    <h3>${simple ? 'Mon programme' : 'Macrocycle'} (${tw} semaines)</h3>
     <div style="display:flex;border-radius:8px;overflow:hidden;margin:8px 0">${macroBar}</div>
-    <div class="legend">${macro.map((ph) => `<span><i style="background:${ph.color}"></i>${esc(ph.name)} · ${ph.weeks}s</span>`).join('')}</div>
+    <div class="legend">${macro.map((ph) => `<span><i style="background:${ph.color}"></i>${esc(simple ? plainPhaseShort(ph.key) : ph.name)}</span>`).join('')}</div>
   </div>
 
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
       <button class="btn secondary small" data-action="week-prev">‹</button>
-      <div class="center"><b>Semaine ${vs.planWeek + 1}</b><div class="small muted">${esc(ctx.phase.name)} · S${ctx.wInPhase + 1}/${ctx.phase.weeks} ${ctx.isDeload ? '· <span style="color:var(--gold)">DELOAD</span>' : ''}</div></div>
+      <div class="center"><b>Semaine ${vs.planWeek + 1}</b><div class="small muted">${subLine}</div></div>
       <button class="btn secondary small" data-action="week-next">›</button>
     </div>
-    ${vs.planWeek !== cur ? `<button class="btn ghost small" style="margin-top:8px;width:100%" data-action="week-now">↩ Revenir à la semaine actuelle</button>` : ''}
+    ${vs.planWeek !== cur ? `<button class="btn ghost small" style="margin-top:8px;width:100%" data-action="week-now">↩ Revenir à cette semaine</button>` : ''}
     <div class="stat-row" style="margin-top:12px">
-      <div class="stat"><div class="n red">${wp.totalLoad}</div><div class="l">Charge sRPE</div></div>
-      <div class="stat"><div class="n gold">${Math.round(weekHours(wp))}h</div><div class="l">Volume</div></div>
+      <div class="stat"><div class="n gold">${Math.round(weekHours(wp))}h</div><div class="l">Temps</div></div>
       <div class="stat"><div class="n blue">${wp.days.flat().filter((s) => s.kind !== 'rest').length}</div><div class="l">Séances</div></div>
+      ${simple ? '' : `<div class="stat"><div class="n red">${wp.totalLoad}</div><div class="l">Charge sRPE</div></div>`}
     </div>
   </div>
 
@@ -246,23 +269,30 @@ function viewLog(st) {
       </div>
     </div>`;
 
+  const simple = isSimple();
   const recent = [...st.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 12);
-  const recentHtml = recent.length ? recent.map((s) => `
-    <div class="sess">
+  const recentHtml = recent.length ? recent.map((s) => {
+    const meta = simple
+      ? `${fmtDate(s.date)}${s.durationMin ? ' · ' + s.durationMin + ' min' : ''}${s.rpe ? ' · effort ' + s.rpe + '/10' : ''}`
+      : `${fmtDate(s.date)} · ${s.durationMin ? s.durationMin + ' min · ' : ''}RPE ${s.rpe || '—'} · charge ${s.load}`;
+    return `<div class="sess">
       <div class="ic">${DISCIPLINE_ICON[s.kind]}</div>
       <div class="body">
         <div class="t">${esc(s.title || DISCIPLINE_LABEL[s.kind])}</div>
-        <div class="d">${fmtDate(s.date)} · ${s.durationMin ? s.durationMin + ' min · ' : ''}RPE ${s.rpe || '—'} · charge ${s.load}</div>
+        <div class="d">${meta}</div>
       </div>
       <button class="x-set" data-action="del-session" data-id="${s.id}" title="Supprimer">🗑️</button>
-    </div>`).join('') : '<div class="empty small">Aucune séance loggée pour l\'instant.</div>';
+    </div>`;
+  }).join('') : '<div class="empty small">Pas encore de séance enregistrée.</div>';
 
-  return `<h1 class="screen-title">✍️ Logger</h1>${form}
-    <div class="card"><h3>Séances récentes</h3>${recentHtml}</div>`;
+  return `<h1 class="screen-title">✍️ Logger ma séance</h1>${form}
+    <div class="card"><h3>Mes dernières séances</h3>${recentHtml}</div>`;
 }
 
 function logFormHtml(d) {
+  const simple = isSimple();
   const dateInput = `<label>Date</label><input id="ld_date" type="date" value="${d.date}" />`;
+  const effortLabel = simple ? 'Effort' : 'RPE';
   if (d.kind === 'lift') {
     const exs = d.exercises.map((ex, i) => {
       const rows = ex.sets.map((s, j) => `
@@ -270,23 +300,32 @@ function logFormHtml(d) {
           <div class="small muted center">${j + 1}</div>
           <input class="ls-w" inputmode="decimal" value="${s.weight ?? ''}" placeholder="kg" />
           <input class="ls-r" inputmode="numeric" value="${s.reps ?? ''}" placeholder="reps" />
-          <input class="ls-rpe" inputmode="decimal" value="${s.rpe ?? ''}" placeholder="RPE" />
+          <input class="ls-rpe" inputmode="decimal" value="${s.rpe ?? ''}" placeholder="1-10" />
           <button class="x-set" data-action="del-set" data-ex="${i}" data-set="${j}">✕</button>
         </div>`).join('');
       return `<div class="card acc-lift" style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(ex.name)}</b></div>
-        <div class="set-grid"><div class="h">#</div><div class="h">Charge</div><div class="h">Reps</div><div class="h">RPE</div><div></div></div>
+        <div class="set-grid"><div class="h">#</div><div class="h">Poids</div><div class="h">Reps</div><div class="h">${effortLabel}</div><div></div></div>
         ${rows}
         <button class="btn ghost small" style="margin-top:8px;width:100%" data-action="add-set" data-ex="${i}">+ série</button>
       </div>`;
     }).join('');
     return `<div class="card"><h3>${esc(d.title)}</h3>${dateInput}
-      <label>Durée totale (min, optionnel)</label><input id="ld_dur" type="number" value="${d.durationMin || ''}" placeholder="ex: 70" />
+      ${simple ? '<p class="small muted" style="margin-top:8px">Note le poids et le nombre de reps de chaque série. La colonne « Effort » (1 facile → 10 à fond) est facultative.</p>' : `<label>Durée totale (min, optionnel)</label><input id="ld_dur" type="number" value="${d.durationMin || ''}" placeholder="ex: 70" />`}
       </div>${exs}
       <div class="btn-row"><button class="btn green" data-action="save-log">✅ Enregistrer</button>
       <button class="btn ghost" data-action="cancel-log" style="width:auto">Annuler</button></div>`;
   }
   // Endurance
+  if (simple) {
+    return `<div class="card"><h3>${DISCIPLINE_ICON[d.kind]} ${esc(d.title || DISCIPLINE_LABEL[d.kind])}</h3>
+      ${dateInput}
+      <label>Combien de temps ? (minutes)</label><input id="ld_dur" type="number" value="${d.durationMin || ''}" placeholder="ex: 40" />
+      <label>C'était dur ? (1 facile → 10 à fond) — facultatif</label><input id="ld_rpe" type="number" step="1" value="${d.rpe || ''}" placeholder="ex: 5" />
+      </div>
+      <div class="btn-row"><button class="btn green" data-action="save-log">✅ Enregistrer</button>
+      <button class="btn ghost" data-action="cancel-log" style="width:auto">Annuler</button></div>`;
+  }
   return `<div class="card"><h3>${DISCIPLINE_ICON[d.kind]} ${esc(d.title || DISCIPLINE_LABEL[d.kind])}</h3>
     ${dateInput}
     <div class="grid2">
@@ -329,32 +368,35 @@ function viewProgress(st) {
   const load28 = st.sessions.filter((s) => daysBetween(s.date, todayISO()) < 28).reduce((a, s) => a + s.load, 0);
   const streak = computeStreak(st);
 
-  return `<h1 class="screen-title">📈 Progrès</h1>
+  const simple = isSimple();
+  return `<h1 class="screen-title">📈 ${simple ? 'Mes progrès' : 'Progrès'}</h1>
   <div class="card"><div class="stat-row">
     <div class="stat"><div class="n red">${total}</div><div class="l">Séances</div></div>
-    <div class="stat"><div class="n gold">${load28}</div><div class="l">Charge 28j</div></div>
-    <div class="stat"><div class="n green">${streak}</div><div class="l">Série (j)</div></div>
-    <div class="stat"><div class="n blue">${ctx.weeksToRace}</div><div class="l">Sem. → course</div></div>
+    <div class="stat"><div class="n green">${streak}</div><div class="l">Jours d'affilée</div></div>
+    ${simple
+      ? `<div class="stat"><div class="n blue">${Math.round(((cur + 1) / tw) * 100)}%</div><div class="l">Programme</div></div>`
+      : `<div class="stat"><div class="n gold">${load28}</div><div class="l">Charge 28j</div></div>
+         <div class="stat"><div class="n blue">${ctx.weeksToRace}</div><div class="l">Sem. → course</div></div>`}
   </div></div>
 
-  <div class="card"><h3>Progression du macrocycle</h3>
+  <div class="card"><h3>${simple ? 'Ma progression' : 'Progression du macrocycle'}</h3>
     <div class="bar"><i style="width:${Math.round(((cur + 1) / tw) * 100)}%"></i></div>
-    <div class="small muted" style="margin-top:6px">Semaine ${cur + 1} / ${tw} · ${esc(ctx.phase.name)}</div>
+    <div class="small muted" style="margin-top:6px">Semaine ${cur + 1} / ${tw}${simple ? '' : ' · ' + esc(ctx.phase.name)}</div>
   </div>
 
-  <div class="card"><h3>Charge hebdomadaire (sRPE)</h3>${barChart(bars)}
-    <div class="small muted">Indicateur d'entraînement total. Les pics suivis de creux = bonne périodisation.</div>
+  <div class="card"><h3>${simple ? 'Mon effort chaque semaine' : 'Charge hebdomadaire (sRPE)'}</h3>${barChart(bars)}
+    <div class="small muted">${simple ? 'Plus la barre est haute, plus tu as bossé cette semaine-là.' : 'Indicateur d\'entraînement total. Les pics suivis de creux = bonne périodisation.'}</div>
   </div>
 
-  <div class="card"><h3>Force — 1RM estimé</h3>
+  <div class="card"><h3>${simple ? 'Ma force qui monte 💪' : 'Force — 1RM estimé'}</h3>
     <select data-action="pick-lift" style="margin-bottom:10px">
       ${MAIN_LIFTS.map((n) => `<option value="${esc(n)}" ${n === vs.progressLift ? 'selected' : ''}>${esc(n)}</option>`).join('')}
     </select>
-    ${liftHist.length ? lineChart(liftSeries) : '<div class="empty small"><div class="big">🏋️</div>Logge des séances de muscu pour voir ta courbe de force.</div>'}
-    ${liftHist.length ? `<div class="small muted">Dernier e1RM : <b>${liftHist[liftHist.length - 1].e1rm} kg</b> · départ ${liftHist[0].e1rm} kg</div>` : ''}
+    ${liftHist.length ? lineChart(liftSeries) : '<div class="empty small"><div class="big">🏋️</div>Logge tes séances de muscu pour voir ta force grimper.</div>'}
+    ${liftHist.length ? `<div class="small muted">${simple ? 'Aujourd\'hui' : 'Dernier e1RM'} : <b>${liftHist[liftHist.length - 1].e1rm} kg</b> · au départ ${liftHist[0].e1rm} kg</div>` : ''}
   </div>
 
-  <div class="card"><h3>Répartition par discipline (28j)</h3>${barChart(discBars)}</div>`;
+  <div class="card"><h3>${simple ? 'Ce que je fais le plus (4 sem.)' : 'Répartition par discipline (28j)'}</h3>${barChart(discBars)}</div>`;
 }
 function computeStreak(st) {
   const dates = new Set(st.sessions.map((s) => s.date));
@@ -424,7 +466,41 @@ function autoGrow(el) { el.style.height = 'auto'; el.style.height = Math.min(el.
 // ============================================================ PROFILE
 function viewProfile(st) {
   const p = st.profile, m = p.metrics, l = p.lifts1rm;
+  const simple = isSimple();
+
+  const modeCard = `<div class="card">
+    <h3>Mode d'affichage</h3>
+    <div class="small muted" style="margin-bottom:8px">${simple ? 'Mode simple : langage clair, pas de chiffres compliqués. 👍' : 'Mode avancé : watts, allures, 1RM, charge…'}</div>
+    <button class="btn secondary" data-action="toggle-simple">${simple ? '🔧 Passer en mode avancé' : '🙂 Revenir au mode simple'}</button>
+  </div>`;
+
+  const dataCard = `<div class="card"><h3>Mes données</h3>
+    <div class="btn-row"><button class="btn secondary" data-action="export">⬇️ Sauvegarder</button>
+    <button class="btn secondary" data-action="import">⬆️ Restaurer</button></div>
+    <button class="btn ghost" style="margin-top:10px" data-action="reset">🗑️ Tout recommencer à zéro</button>
+  </div>`;
+
+  if (simple) {
+    return `<h1 class="screen-title">⚙️ Réglages</h1>
+    <form id="profileForm">
+      <div class="card">
+        <label>Ton prénom</label><input name="name" value="${esc(p.name)}" placeholder="Ton prénom" />
+        <label>Jours par semaine</label>
+        <select name="daysPerWeek">
+          ${[3, 4, 5, 6].map((n) => `<option value="${n}" ${(+p.daysPerWeek || 5) === n ? 'selected' : ''}>${n} jours</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn green" type="submit" data-action="save-profile">💾 Enregistrer</button>
+    </form>
+    ${modeCard}
+    ${dataCard}
+    <div class="card"><h3>C'est quoi cette app ?</h3>
+      <p class="small muted">Un programme qui mélange <b>muscu</b> et <b>cardio (triathlon)</b>. Elle commence doucement et devient un peu plus dure quand tu progresses. Chaque jour, fais ce qui est marqué, dis-lui comment tu te sens, et logge ta séance. C'est tout. 💪</p>
+    </div>`;
+  }
+
   return `<h1 class="screen-title">⚙️ Profil & réglages</h1>
+  ${modeCard}
   <form id="profileForm">
     <div class="card"><h3>Repères de performance</h3>
       <p class="small muted">Mets-les à jour quand tu retestes (FTP, CSS, allure seuil) — tout le plan se recale automatiquement.</p>
@@ -450,14 +526,7 @@ function viewProfile(st) {
     </div></div>
     <button class="btn green" type="submit" data-action="save-profile">💾 Enregistrer</button>
   </form>
-  <div class="card" style="margin-top:14px"><h3>Données</h3>
-    <div class="btn-row"><button class="btn secondary" data-action="export">⬇️ Exporter</button>
-    <button class="btn secondary" data-action="import">⬆️ Importer</button></div>
-    <button class="btn ghost" style="margin-top:10px" data-action="reset">🗑️ Tout réinitialiser</button>
-  </div>
-  <div class="card"><h3>Comment ça marche</h3>
-    <p class="small muted">Macrocycle bodybuilding → endurance, cycles de charge 3:1 (deload auto), surcharge progressive sur la muscu (basée sur tes vraies séances), ramp d'endurance bornée par l'ACWR pour éviter la blessure, et auto-régulation selon ton ressenti du jour. Bref : ça part prudent et ça s'adapte à <b>toi</b>.</p>
-  </div>`;
+  ${dataCard}`;
 }
 
 // ============================================================ EVENTS
@@ -518,6 +587,7 @@ function onClick(e) {
     case 'export': doExport(); break;
     case 'import': doImport(); break;
     case 'reset': doReset(); break;
+    case 'toggle-simple': update((st) => { st.profile.simpleMode = st.profile.simpleMode === false; }); rerender(); break;
     case 'coach-savekey': coachSaveKey(); break;
     case 'coach-send': coachSend(); break;
     case 'coach-clear': coachClear(); break;
@@ -532,18 +602,8 @@ function doOnboard(form) {
   update((st) => {
     const p = st.profile;
     p.name = fd.get('name') || '';
-    p.bodyweightKg = +fd.get('bodyweightKg') || p.bodyweightKg;
-    p.heightCm = +fd.get('heightCm') || p.heightCm;
-    p.age = +fd.get('age') || p.age;
-    p.raceType = fd.get('raceType');
-    p.raceDate = fd.get('raceDate') || null;
-    p.daysPerWeek = +fd.get('daysPerWeek') || 5;
-    p.metrics.ftpWatts = +fd.get('ftpWatts') || p.metrics.ftpWatts;
-    p.metrics.swimCss = +fd.get('swimCss') || p.metrics.swimCss;
-    p.metrics.runThreshold = +fd.get('runThreshold') || p.metrics.runThreshold;
-    p.metrics.maxHr = +fd.get('maxHr') || p.metrics.maxHr;
-    p.metrics.restHr = +fd.get('restHr') || p.metrics.restHr;
-    for (const n of MAIN_LIFTS) { const v = +fd.get('orm_' + n); if (v) p.lifts1rm[n] = v; }
+    p.daysPerWeek = +fd.get('daysPerWeek') || p.daysPerWeek || 5;
+    p.simpleMode = true;
     st.onboarded = true;
     st.startDate = todayISO();
   });
@@ -552,28 +612,32 @@ function doOnboard(form) {
 
 function doSaveProfile(form) {
   const fd = new FormData(form);
+  const has = (k) => fd.has(k);
   update((st) => {
     const p = st.profile;
-    p.bodyweightKg = +fd.get('bodyweightKg') || p.bodyweightKg;
-    p.metrics.ftpWatts = +fd.get('ftpWatts') || p.metrics.ftpWatts;
-    p.metrics.swimCss = +fd.get('swimCss') || p.metrics.swimCss;
-    p.metrics.runThreshold = +fd.get('runThreshold') || p.metrics.runThreshold;
-    p.metrics.maxHr = +fd.get('maxHr') || p.metrics.maxHr;
-    p.metrics.restHr = +fd.get('restHr') || p.metrics.restHr;
-    p.raceType = fd.get('raceType');
-    p.raceDate = fd.get('raceDate') || null;
-    for (const n of MAIN_LIFTS) { const v = +fd.get('orm_' + n); if (v) p.lifts1rm[n] = v; }
+    if (has('name')) p.name = fd.get('name') || '';
+    if (has('daysPerWeek')) p.daysPerWeek = +fd.get('daysPerWeek') || p.daysPerWeek;
+    if (has('bodyweightKg')) p.bodyweightKg = +fd.get('bodyweightKg') || p.bodyweightKg;
+    if (has('ftpWatts')) p.metrics.ftpWatts = +fd.get('ftpWatts') || p.metrics.ftpWatts;
+    if (has('swimCss')) p.metrics.swimCss = +fd.get('swimCss') || p.metrics.swimCss;
+    if (has('runThreshold')) p.metrics.runThreshold = +fd.get('runThreshold') || p.metrics.runThreshold;
+    if (has('maxHr')) p.metrics.maxHr = +fd.get('maxHr') || p.metrics.maxHr;
+    if (has('restHr')) p.metrics.restHr = +fd.get('restHr') || p.metrics.restHr;
+    if (has('raceType')) p.raceType = fd.get('raceType');
+    if (has('raceDate')) p.raceDate = fd.get('raceDate') || null;
+    for (const n of MAIN_LIFTS) { if (has('orm_' + n)) { const v = +fd.get('orm_' + n); if (v) p.lifts1rm[n] = v; } }
   });
-  toast('Profil enregistré ✅'); rerender();
+  toast('Enregistré ✅'); rerender();
 }
 
 function openDraftFrom(slim) {
   if (slim.kind === 'lift') {
+    const simple = isSimple();
     logDraft = {
       kind: 'lift', date: todayISO(), title: slim.title, tplKey: slim.tplKey,
       exercises: slim.exercises.map((e) => ({
         name: e.name,
-        sets: Array.from({ length: e.sets }, () => ({ weight: e.weight || null, reps: e.reps || null, rpe: null }))
+        sets: Array.from({ length: e.sets }, () => ({ weight: simple ? null : (e.weight || null), reps: e.reps || null, rpe: null }))
       }))
     };
   } else {

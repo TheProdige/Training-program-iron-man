@@ -5,6 +5,13 @@ tout en continuant à construire du muscle. C'est une **PWA** : tu l'installes s
 téléphone, elle marche **hors-ligne**, et **toutes tes données restent sur ton appareil**
 (aucun serveur, aucun compte, aucun envoi en ligne).
 
+## Mode simple (par défaut) 🙂
+
+L'app démarre en **mode débutant** : zéro jargon, pas de chiffres compliqués. Chaque jour elle
+te dit **quoi faire en français normal** (« 45 min de vélo tranquille — tu dois pouvoir
+discuter », « 4 séries de 6-8 reps, prends un poids où les dernières sont dures »). Tu peux
+basculer en **mode avancé** (watts, allures, 1RM, charge sRPE, ACWR…) depuis l'écran Profil.
+
 ## La philosophie
 
 Le combo triathlon + bodybuilding est puissant mais piégeux à cause de **l'effet
