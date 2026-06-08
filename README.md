@@ -54,12 +54,21 @@ séances loggées, 1RM. Il explique le *pourquoi*, ajuste tes séances et repèr
 
 ## En ligne
 
-L'app est déployée automatiquement sur **GitHub Pages** à chaque push (workflow
-`.github/workflows/pages.yml`) :
+**Lien direct (aucun réglage requis), servi via CDN depuis la branche `main` :**
 
-➡️ **https://theprodige.github.io/Training-program-iron-man/**
+➡️ **https://raw.githack.com/TheProdige/Training-program-iron-man/main/index.html**
+
+Miroir : `https://cdn.jsdelivr.net/gh/TheProdige/Training-program-iron-man@main/index.html`
 
 Sur mobile : ouvre ce lien puis « Ajouter à l'écran d'accueil » pour l'installer comme une app.
+
+### Option : URL GitHub Pages propre
+
+Pour une URL plus propre (`https://theprodige.github.io/Training-program-iron-man/`),
+active **GitHub Pages une fois** : *Settings → Pages → Build and deployment → Source =
+« GitHub Actions »*, puis lance le workflow `Deploy IRONFORGE to GitHub Pages`
+(onglet Actions → Run workflow). Le token CI ne peut pas activer Pages tout seul,
+d'où ce réglage manuel unique.
 
 ## Lancer en local
 
