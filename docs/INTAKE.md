@@ -64,6 +64,48 @@
 
 ---
 
-### Réponses
+### Réponses (round 1 — 2026-06-08)
 
-_(à remplir — copie les numéros et réponds, ou réponds en vrac, je trie.)_
+**1. Identité & vie**
+- 19 ans, **140 lb**, **5'9"** (≈175 cm). _(léger : IMC ~20-21)_
+- École temps plein : part 7h00, rentre 16h30 → entraînement surtout **soir** (et tôt matin possible).
+- Stress : **quasi zen**, peu stressé. ✅ atout récup
+- Sommeil : besoin de **8h minimum**, sinon ça va mal. → on protège le sommeil, priorité absolue.
+
+**2. Historique sportif & santé**
+- A déjà entraîné un peu (force/muscu), a « slaqué », **reprend maintenant**.
+- Muscu : repères ~**bench 135 lb**, **squat ≈ 1.5 plaque**. Jamais fait de force structurée → **gros newbie gains dispo**.
+- Endurance : **bon fond** — vélo 10 km à **28 km/h**, course 5 km à **4:30-4:40/km** (~22-23 min). Solide pour débuter.
+- **Aucune blessure.** Petite gêne au **cou**, rien de grave. Mobilité **correcte**.
+- Santé : RAS mentionné. _(feu vert médical pour effort intense : à confirmer)_
+
+**3. Objectifs & priorités**
+- **Priorité n°1 : IRONMAN.** Priorité n°2 : **muscu / esthétique**. ~~Boxe~~ → **abandonnée** (pas nécessaire).
+- Physique visé : **athlète musclé** (look muscu) **+ capable de faire un Ironman**.
+- Motivation profonde : **se dépasser, être au-dessus de soi.**
+
+**4. Repères de perfo**
+- Force : bench ~135, squat ~1.5 plaque. Pas de tests pompes/tractions encore → **à mesurer**.
+- Course/vélo : voir §2. **Nage : NON RENSEIGNÉE → à clarifier (critique pour l'IM).**
+
+**5. Nutrition**
+- Pas de cadre nutritionnel actuel. **Objectif poids : 140 → ~160 lb.** _(=+20 lb, voir analyse : tension avec l'IM)_
+- Détails régime/repas/suppléments : **à compléter.** Suivi macros : « plus dur pour l'instant, je fais avec ce que j'ai. »
+
+**6. Matériel** — _à compléter (haltères max lbs, kettlebells, banc, home trainer, tapis, rameur, **capteurs**, **accès piscine**)._
+
+**7. Vie pratique & récup**
+- Créneaux réalistes : **soir** surtout. **Double quotidien possible** (pas idéal mais faisable).
+- Réagit aux ratés (ça l'affecte) → le système doit **déculpabiliser et relancer**.
+
+**8. Tête & préférences**
+- Veut **du cadrage / être tenu responsable**. Préférences aime/déteste : à préciser.
+
+---
+
+### ⚠️ Points à clarifier avant l'analyse finale
+- [ ] **Niveau de natation** (tiens combien de mètres en crawl sans t'arrêter ?) — critique IM.
+- [ ] **Accès piscine** (laquelle, jours/horaires, longueur bassin) ?
+- [ ] **Matériel exact** : haltères (jusqu'à ? lbs), kettlebells, banc (inclinable ?), home trainer/vélo d'appart, tapis, rameur.
+- [ ] **Capteurs** : montre GPS, ceinture FC, capteur puissance vélo, balance ?
+- [ ] **Feu vert médical** pour l'effort très intense ?
