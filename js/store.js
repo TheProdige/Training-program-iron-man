@@ -13,6 +13,7 @@ const DEFAULT_STATE = {
     heightCm: 178,
     age: 28,
     sex: 'M',
+    simpleMode: true,              // mode débutant : langage simple, pas de chiffres compliqués
     raceType: '70.3',              // '70.3' | 'full'
     raceDate: null,                // ISO
     daysPerWeek: 5,
