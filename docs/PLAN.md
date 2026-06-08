@@ -17,6 +17,13 @@ en s'**adaptant chaque jour**, et en te disant **quoi améliorer en priorité**.
 C'est plus qu'un coach : un système qui ne suppose rien, mesure tout, et te pousse au maximum
 de ce que ton corps peut encaisser **sans te casser**.
 
+> **Principe directeur (le plus important).** Ce n'est **pas un plan annuel figé** qu'on suit
+> bêtement. C'est une **boucle vivante** : chaque semaine, le système **analyse tes résultats**,
+> te présente ce qui marche / ce qui coince, et **on décide ensemble** quoi changer, garder ou
+> enlever pour la semaine suivante. Le macrocycle (§2) n'est qu'un **échafaudage flexible**,
+> réécrit en continu à partir de tes vraies données et de nos décisions hebdomadaires.
+> Le coach **analyse d'abord, ajuste ensuite** — toujours.
+
 ---
 
 ## 1. La réalité du projet (lis ça en premier)
@@ -47,7 +54,12 @@ construction musculaire plus longtemps qu'à 6 h fixes. Les règles restent :
 
 ## 2. Méthodologie d'entraînement
 
-### 2.1 Macrocycle ~48-52 semaines (recalé sur ta date de course)
+> ⚠️ **À lire avec le §3-bis (boucle hebdo).** Le macrocycle ci-dessous est une **direction**,
+> pas un contrat. Il donne le cap (quelle priorité, quelle saison d'entraînement), mais le
+> **détail réel de chaque semaine** est décidé lors de la **revue hebdomadaire** à partir de tes
+> résultats. On peut raccourcir, rallonger, sauter ou refondre une phase si les données le disent.
+
+### 2.1 Macrocycle ~48-52 semaines (échafaudage flexible, recalé en continu)
 
 Logique **« muscle d'abord, endurance ensuite »** pour limiter l'effet d'interférence :
 
@@ -101,6 +113,40 @@ Logique **« muscle d'abord, endurance ensuite »** pour limiter l'effet d'inter
 | Ven | Vélo Z2 60 min OU repos | 🟢 |
 | Sam | **Vélo long 2.5-3.5 h** + transition course 20 min | 🔴 Brick |
 | Dim | Course longue 90-120 min | 🔴 Endurance |
+
+---
+
+## 3-bis. 🔁 La boucle de revue hebdomadaire — LE CŒUR DU SYSTÈME
+
+C'est le mécanisme central. Pas un plan figé : un **cycle analyse → décision → ajustement**
+qui tourne **chaque semaine**.
+
+**À la fin de chaque semaine, le système génère une REVUE :**
+1. **Ce qui s'est passé** — séances faites vs prévues (% adhérence), volume/charge réels,
+   évolution des KPI clés, macros tenues, readiness moyenne, ACWR.
+2. **Ce qui marche / ce qui coince** — progrès vs stagnation vs régression, signaux d'alerte
+   (fatigue, sommeil, douleur, ACWR trop haut), maillon faible du moment.
+3. **Propositions d'ajustement pour la semaine suivante** — quoi **garder**, quoi **changer**,
+   quoi **enlever/ajouter**, avec le **pourquoi** chiffré.
+
+**Puis on décide ENSEMBLE** (toi + le coach IA) : tu acceptes, modifies ou refuses chaque
+proposition. La semaine suivante est **régénérée** à partir de tes décisions. Rien n'est imposé.
+
+**Exemple de revue :**
+> _Semaine 7 — Adhérence 5/6 séances. FTP +4 W (bien). Mais : sommeil moyen 6h, courbatures
+> hautes 3 jours, ACWR monté à 1.42. **Reco : garder** la muscu, **réduire** le volume vélo de
+> 15 %, **ajouter** un jour de récup. **Pourquoi :** ton ACWR approche la zone risque, on consolide
+> avant de repousser. D'accord ?_
+
+**Ce qui rend ça possible techniquement :**
+- Le moteur stocke chaque semaine un **snapshot** (KPI, charge, adhérence, readiness).
+- L'écran **Revue** (§8) présente le bilan + les propositions sous forme de cases à
+  accepter/refuser.
+- Tes décisions sont **journalisées** (on garde l'historique des « pourquoi on a changé ça »).
+- Le coach IA s'appuie sur la revue pour discuter et affiner.
+
+> 👉 Conséquence : le système **n'est jamais terminé**. Il **apprend de toi** semaine après semaine.
+> C'est ce qui en fait un projet **à vie**, pas un programme de 48 semaines.
 
 ---
 
@@ -204,7 +250,8 @@ mauvais sommeil répété, perte de poids trop rapide).
 ### Modèle de données (entités)
 `Profile` · `Benchmarks` (FTP, CSS, allures, 1RM) · `Macrocycle`/`Phase`/`Week` ·
 `PlannedWorkout` · `SessionLog` (muscu/endurance/boxe) · `NutritionLog` · `BodyMetric` ·
-`ReadinessCheck` · `KpiSnapshot` · `Settings`.
+`ReadinessCheck` · `KpiSnapshot` · **`WeeklyReview`** (bilan + propositions) ·
+**`DecisionLog`** (ce qu'on a décidé de changer/garder + le pourquoi) · `Settings`.
 
 ### Écrans
 - **🎯 Aujourd'hui** — séance du jour chiffrée + check ressenti + ACWR + macros du jour.
@@ -213,6 +260,7 @@ mauvais sommeil répété, perte de poids trop rapide).
 - **🍽️ Nutrition** — cible macros du jour + saisie + adhérence.
 - **📐 Corps** — poids, mesures, % MG, photos.
 - **📈 Progrès** — courbes KPI + **analyse du maillon faible**.
+- **🔁 Revue** — bilan hebdo + propositions d'ajustement à accepter/modifier/refuser + historique des décisions.
 - **💬 Coach** — chat IA.
 - **⚙️ Profil** — repères, phase, export/import.
 
@@ -227,8 +275,10 @@ mauvais sommeil répété, perte de poids trop rapide).
 5. **M4 — Moteur adaptatif** : double progression, ACWR, autorégulation, deload, taper.
 6. **M5 — Nutrition/macros** : cibles périodisées + suivi.
 7. **M6 — Corps + Progrès + maillon faible** : KPI, courbes, analyse limiteur.
-8. **M7 — Coach IA** : chat streaming + prompt système.
-9. **M8 — Polish PWA** : offline, install, sauvegarde, accessibilité.
+8. **M7 — 🔁 Revue hebdomadaire** : génération du bilan, propositions, accept/refus, régénération
+   de la semaine suivante, journal des décisions. **(Le cœur du système — voir §3-bis.)**
+9. **M8 — Coach IA** : chat streaming + prompt système, branché sur la revue.
+10. **M9 — Polish PWA** : offline, install, sauvegarde, accessibilité.
 
 ---
 
