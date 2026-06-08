@@ -103,9 +103,23 @@
 
 ---
 
-### ⚠️ Points à clarifier avant l'analyse finale
-- [ ] **Niveau de natation** (tiens combien de mètres en crawl sans t'arrêter ?) — critique IM.
-- [ ] **Accès piscine** (laquelle, jours/horaires, longueur bassin) ?
-- [ ] **Matériel exact** : haltères (jusqu'à ? lbs), kettlebells, banc (inclinable ?), home trainer/vélo d'appart, tapis, rameur.
-- [ ] **Capteurs** : montre GPS, ceinture FC, capteur puissance vélo, balance ?
-- [ ] **Feu vert médical** pour l'effort très intense ?
+### Réponses (round 2 — 2026-06-08)
+- **Natation : nage BIEN le crawl** (400 m+ sans s'arrêter). ✅✅ atout majeur, l'IM est crédible.
+- **Piscine : accès limité** (~1x/semaine réaliste). → on maximise cette séance + travail à sec
+  (élastiques de nage) à la maison ; la nage est déjà bonne donc 1x/sem suffit en entretien/technique,
+  on densifiera à l'approche de la course.
+- **Capteurs : aucun** pour l'instant, mais **peut se procurer une Fitbit**. → on tourne au **RPE + allure/vitesse**
+  pour démarrer ; **reco : prendre la Fitbit** pour la **FC (zones Z2)**, ça rend l'endurance polarisée bien plus précise.
+- **Cardio maison : home trainer / vélo d'appart + vélo de route dehors.** ✅ Vélo couvert toute l'année
+  (trainer = sorties longues structurées même l'hiver/pluie). **Course : dehors.** Pas de tapis ni rameur.
+
+### Reste à préciser (non bloquant — l'onboarding de l'app le capturera)
+- [ ] Charges exactes : haltères jusqu'à combien de lbs ? Kettlebells ? Banc inclinable ?
+- [ ] Feu vert médical pour l'effort très intense (recommandé à 19 ans avant un gros volume).
+
+### 🧭 Synthèse profil
+Jeune (19), léger (140/5'9"), **récup excellente** (zen + 8h sommeil), **0 blessure**.
+**Base aérobie déjà bonne** (course + vélo), **nage déjà acquise**, **force débutante = newbie gains énormes**.
+Priorités : **1) Ironman, 2) muscu/esthétique** (boxe abandonnée). Objectif poids 160 lb = horizon 2-3 ans ;
+cible 1 an réaliste **~150-155 lb athlétique + finir l'IM**. Contraintes : entraînement surtout **le soir**
+(école 7h-16h30), **double quotidien possible**, **piscine 1x/sem**, **pas de capteurs** (Fitbit envisageable).
