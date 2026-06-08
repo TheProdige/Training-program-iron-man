@@ -232,11 +232,13 @@ mauvais sommeil répété, perte de poids trop rapide).
 
 ---
 
-## 10. Questions ouvertes à trancher avant le build
+## 10. Décisions verrouillées (validées)
 
-- [ ] **Nom** du système : on garde **FORGE** ? (ou IRONFORGE v2 / autre)
-- [ ] **Date de course** précise pour caler le macrocycle (sinon on part sur 48 sem dès aujourd'hui).
-- [ ] Tes **repères de départ** si tu les connais (FTP, allures, poids, max tractions/pompes) —
-      sinon Phase 0 les mesure.
-- [ ] **Système d'unités** : métrique (kg, km, min/km) confirmé ?
-- [ ] **Boxe** : tu as un sac de frappe à la maison, ou conditionnement shadow/circuit only ?
+- [x] **Nom** : **IRONFORGE** (on garde le nom).
+- [x] **Date de course** : pas de date fixée → macrocycle de **48 semaines à partir du 2026-06-08**,
+      course cible ≈ **mi-mai 2027**. Recalable dès que la course est réservée (tout se réaligne).
+- [x] **Boxe** : **sac de frappe** disponible → rounds de frappe réels programmables (pas seulement shadow).
+- [x] **Unités** : **métrique** pour l'endurance (km, min/km, watts, °C) **mais lbs** pour le poids
+      corporel et les charges muscu. Le moteur convertit en interne (calculs en SI), l'affichage est mixte.
+- [ ] **Repères de départ** (FTP, allures, poids, max tractions/pompes) : si connus, à saisir à
+      l'onboarding ; sinon **Phase 0** les mesure.
