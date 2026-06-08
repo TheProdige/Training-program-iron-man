@@ -3,7 +3,7 @@
 import { getState } from './store.js';
 import {
   currentWeek, phaseInfo, todayPlan, acwr, acwrFlag,
-  nutritionTarget, limiterAnalysis, buildWeeklyReview
+  nutritionTarget, limiterAnalysis, detailToText
 } from './engine.js';
 
 const SYSTEM = `Tu es IRONFORGE, le coach personnel d'endurance et de force de l'utilisateur.
@@ -35,7 +35,7 @@ export function buildContext() {
     `# Profil`, `${s.profile.age} ans, ${s.profile.weightLb} lb (cible ${s.profile.goalWeightLb}), ${s.profile.heightCm} cm, emphasis=${s.profile.emphasis}.`,
     `# Repères`, `FTP=${s.benchmarks.ftp ?? '?'}W, 5k=${s.benchmarks.run5kSec ?? '?'}s, CSS=${s.benchmarks.cssSec100 ?? '?'}s/100m, bench5RM=${s.benchmarks.bench5rm ?? '?'}, pompes=${s.benchmarks.maxPushups ?? '?'}, tractions=${s.benchmarks.maxPullups ?? '?'}.`,
     `# Phase`, `${phase.name} (sem ${week.index + 1}${week.deload ? ', DELOAD' : ''}). ${phase.focus}.`,
-    `# Séance du jour`, `${plan.detail.title} — ${plan.detail.lines.join(' ')} (mult readiness ${plan.mult}).`,
+    `# Séance du jour`, `${detailToText(plan.detail)} (intensité readiness ×${plan.mult}).`,
     `# Charge/ACWR`, `ACWR=${a.ratio} (${acwrFlag(a.ratio).msg}).`,
     `# Nutrition cible`, nut ? `${nut.kcal} kcal, P${nut.proteinG}/G${nut.carbsG}/L${nut.fatG}. ${nut.note}` : 'non calculée',
     `# Corps`, body ? `${body.date}: ${body.weightLb} lb` : 'aucune mesure',

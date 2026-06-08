@@ -146,59 +146,211 @@ export function todayPlan(state, iso = todayISO()) {
   return { week, phase, slot, detail, mult, deload: week.deload };
 }
 
+/* ---- paramètres de séance par phase ---- */
+const PHASE_LIFT = {
+  hyper:      { sets: 4, repLo: 8,  repHi: 12, rir: '1-2', rest: '75-90 s', tempo: '3-0-1 (descente lente, pas de rebond)', dur: 55, note: 'Hypertrophie : cherche la tension et la congestion, technique stricte sur toute l\'amplitude.' },
+  strength:   { sets: 4, repLo: 4,  repHi: 6,  rir: '1-2', rest: '2-3 min', tempo: 'Explosif en poussée, contrôlé en descente', dur: 60, note: 'Force : charges lourdes, repos complets, reste explosif et propre.' },
+  specific:   { sets: 3, repLo: 4,  repHi: 6,  rir: '2-3', rest: '2-3 min', tempo: 'Contrôlé', dur: 40, note: 'Maintien lourd : peu de volume, on garde la force sans accumuler de fatigue (l\'endurance prime).' },
+  peak:       { sets: 2, repLo: 5,  repHi: 5,  rir: '3',   rest: '2 min',   tempo: 'Léger et propre', dur: 30, note: 'Entretien pendant l\'affûtage : touche les charges, reste frais.' },
+  transition: { sets: 2, repLo: 8,  repHi: 12, rir: '3',   rest: '90 s',    tempo: 'Confort', dur: 40, note: 'Repos actif : bouge pour le plaisir, sans forcer.' }
+};
+// jours d'entraînement : références "groupe:index" dans EXERCISES
+const STRENGTH_DAYS = {
+  A: ['legs:0', 'push:0', 'pull:1', 'legs:2', 'push:2'],   // goblet squat, DC haltères, rowing 1 bras, SDT roumain, dév. militaire
+  B: ['legs:1', 'pull:0', 'push:1', 'legs:3', 'pull:3'],   // fentes, tractions, dév. incliné, hip thrust, curl
+  M: ['legs:0', 'push:0', 'pull:0']                        // maintien : squat, DC, tractions
+};
+const CORE_DAYS = { A: ['core:0', 'core:2'], B: ['core:1', 'core:4'], M: ['core:0'] };
+const exo = (ref) => { const [g, i] = ref.split(':'); return EXERCISES[g][+i]; };
+
 function buildSessionDetail(state, slot, { mult, deload }) {
   const b = state.benchmarks;
-  if (slot.type === 'rest') return { title: slot.intent, lines: ['Récupération. Marche, mobilité, sommeil.'] };
-
+  const phaseId = currentWeek(state).phaseId;
+  if (slot.type === 'rest') {
+    return { title: slot.intent, focus: 'Récupération', durationMin: 0, blocks: [
+      { label: 'Aujourd\'hui', items: [
+        'Repos complet, ou marche facile 20-30 min.',
+        'Mobilité douce 5-10 min (hanches, épaules, et ton cou : rotations lentes).',
+        'Vise tes 8 h de sommeil — c\'est là que les adaptations se construisent.' ] }
+    ], notes: [] };
+  }
   if (slot.type === 'strength') {
-    const key = ({ hyper: 'hyper', strength: 'strength', specific: 'specific', peak: 'peak' })[currentWeek(state).phaseId] || 'hyper';
-    const t = STRENGTH_TEMPLATES[key];
-    const lines = [`Schéma : ${t.scheme} (RIR ${t.rir}). ${t.note}`];
-    const groups = slot.tag === 'A' ? ['push', 'legs', 'core'] : slot.tag === 'B' ? ['pull', 'legs', 'core'] : ['push', 'pull', 'legs'];
-    if (slot.tag === 'TEST') {
-      return { title: 'Tests de force + photos', lines: [
-        'Max pompes (1 série à l\'échec).', 'Max tractions (à l\'échec).',
-        'Bench haltères : trouve ton 5RM (RIR 1-2).', 'Goblet squat / fentes : 5RM.',
-        'Photos face/profil/dos + mensurations.' ] };
-    }
-    groups.forEach((g) => {
-      const ex = EXERCISES[g][0];
-      const sugg = suggestStrength(state, ex);
-      lines.push(`• ${ex} — ${t.scheme}${sugg ? ` (essaie ${sugg} lb)` : ''}`);
-      lines.push(`• ${EXERCISES[g][1]} — ${t.scheme}`);
-    });
-    if (deload) lines.push('🔻 Deload : -30% de volume, garde la technique.');
-    return { title: slot.intent, lines };
+    return slot.tag === 'TEST' ? strengthTestSession() : strengthSession(state, slot, phaseId, deload, mult);
   }
+  return enduranceSession(state, slot, phaseId, deload, mult, b);
+}
 
-  // endurance
-  const durBase = enduranceDuration(state, slot, deload);
-  const dur = Math.round(durBase * mult);
-  const lines = [];
-  if (slot.type === 'bike') {
-    if (slot.zone === 'TEST') return { title: 'Test FTP', lines: ['15 min échauffement', '20 min le plus fort RÉGULIER (RPE 8-9) — note la moyenne', '10 min retour au calme', 'FTP ≈ 95% de la moyenne des 20 min'] };
-    const pw = powerForZone(b.ftp, slot.zone);
-    lines.push(`${dur} min à vélo en ${slot.zone}.`);
-    if (pw) lines.push(`Cible puissance : ${pw.lo}-${pw.hi} W.`); else lines.push('Sans capteur : règle au RPE (Z2 = 4-5, tu discutes ; Z4 = 8).');
-  } else if (slot.type === 'run') {
-    if (slot.zone === 'TEST') return { title: 'Test 5 km', lines: ['10 min échauffement', '5 km chrono allure régulière', '5-10 min retour au calme', 'Note ton temps.'] };
-    const thr = thresholdPaceFrom5k(b.run5kSec);
-    lines.push(`${dur} min de course en ${slot.zone}.`);
-    if (thr) {
-      const pace = slot.zone === 'Z2' ? thr * 1.15 : slot.zone === 'Z3' ? thr * 1.04 : thr;
-      lines.push(`Allure cible ≈ ${fmtPace(pace)}.`);
-    } else lines.push('Sans repère : Z2 = tu peux parler ; tempo = phrases courtes.');
-  } else if (slot.type === 'swim') {
-    lines.push(`${dur} min de natation — ${slot.intent}.`);
-    if (b.cssSec100) lines.push(`Allure seuil (CSS) ≈ ${Math.round(b.cssSec100)} s/100m.`);
-    lines.push('Si pas de piscine ce jour : travail à sec (élastiques de nage) 15-20 min.');
-  } else if (slot.type === 'brick') {
-    const bike = Math.round(dur * 0.8), run = Math.max(15, dur - bike);
-    lines.push(`Vélo ${bike} min en Z2, puis enchaîne ${run} min de course.`);
-    lines.push('Transition rapide : c\'est l\'enchaînement qu\'on entraîne.');
+/* ===== Muscu détaillée ===== */
+function strengthSession(state, slot, phaseId, deload, mult) {
+  const t = PHASE_LIFT[phaseId] || PHASE_LIFT.hyper;
+  const tag = STRENGTH_DAYS[slot.tag] ? slot.tag : (phaseId === 'specific' || phaseId === 'peak' ? 'M' : 'A');
+  let sets = t.sets;
+  if (deload) sets = Math.max(1, sets - 1);
+  if (mult < 0.8 && tag !== 'M') sets = Math.max(2, sets - 1);
+
+  const warm = { label: '🔥 Échauffement (~8 min)', items: [
+    '5 min cardio léger (corde à sauter, rameur ou vélo) pour monter en température.',
+    `Mobilité ciblée 3 min : ${tag === 'B' ? 'dorsaux, épaules, hanches' : 'hanches, chevilles, épaules'}.`,
+    'Sur le 1er exercice : 2 séries d\'échauffement légères (8-10 reps) avant les séries lourdes.'
+  ] };
+
+  const mains = STRENGTH_DAYS[tag].map((ref) => {
+    const name = exo(ref);
+    const sugg = suggestStrength(state, name);
+    const load = sugg ? `vise ${sugg} lb` : `charge où les dernières reps sont à RIR ${t.rir}`;
+    return `${name} — ${sets} × ${t.repLo}-${t.repHi} · repos ${t.rest} · RIR ${t.rir} · ${load}`;
+  });
+  const main = { label: `💪 Corps de séance (tempo ${t.tempo})`, items: mains };
+
+  const core = { label: '🧱 Gainage (finisher)', items:
+    CORE_DAYS[tag].map((ref) => `${exo(ref)} — 3 × 30-45 s · repos 30 s`) };
+
+  const notes = [t.note,
+    'Progression : quand tu boucles le HAUT de la fourchette de reps sur toutes les séries à RIR ≤ 1, monte de 5 lb la prochaine fois.'];
+  if (tag !== 'B') notes.push('⚠️ Ton cou : sur les développés, garde la nuque neutre, ne pousse pas la tête dans le banc. Stoppe au moindre pincement.');
+  if (deload) notes.push('🔻 Semaine de deload : volume réduit, on garde la technique, pas l\'ego.');
+
+  return { title: slot.intent, focus: phaseId === 'specific' ? 'Maintien de la force' : 'Muscle / force',
+    durationMin: deload ? Math.round(t.dur * 0.8) : t.dur, blocks: [warm, main, core], notes };
+}
+
+function strengthTestSession() {
+  return { title: 'Tests de force + photos', focus: 'Ligne de base', durationMin: 60, blocks: [
+    { label: '🔥 Échauffement (~10 min)', items: ['Cardio léger 5 min + mobilité épaules/hanches/cou.', 'Quelques séries légères avant chaque test lourd.'] },
+    { label: '📋 Tests', items: [
+      'Max pompes : 1 série stricte jusqu\'à l\'échec → note le nombre.',
+      'Max tractions : 1 série jusqu\'à l\'échec (ou négatives si 0) → note.',
+      'Développé couché haltères : monte jusqu\'à un 5RM propre (RIR 1-2) → note la charge.',
+      'Goblet squat (ou fentes) : trouve un 5RM contrôlé → note.' ] },
+    { label: '📐 Mesures', items: ['Poids + tour de taille, bras, poitrine, cuisse.', 'Photos face / profil / dos (même lumière, mêmes repères).'] }
+  ], notes: ['On ne cherche pas le record absolu : un effort propre et répétable. Ces chiffres calibrent tout le reste.'] };
+}
+
+/* ===== Endurance détaillée ===== */
+function enduranceSession(state, slot, phaseId, deload, mult, b) {
+  const dur = Math.round(enduranceDuration(state, slot, deload) * mult);
+
+  if (slot.type === 'bike' && slot.zone === 'TEST') return ftpTest();
+  if (slot.type === 'run' && slot.zone === 'TEST') return run5kTest();
+  if (slot.type === 'swim' && /test|css/i.test(slot.intent)) return cssTest();
+
+  if (slot.type === 'bike') return bikeSession(slot, dur, b, phaseId, deload);
+  if (slot.type === 'run') return runSession(slot, dur, b, phaseId, deload);
+  if (slot.type === 'swim') return swimSession(dur, b, phaseId, deload, slot);
+  if (slot.type === 'brick') return brickSession(dur, b, slot);
+  return { title: slot.intent, focus: 'Endurance', durationMin: dur, blocks: [{ label: 'Séance', items: [`${dur} min facile.`] }], notes: [] };
+}
+
+function bikeSession(slot, dur, b, phaseId, deload) {
+  const pw2 = powerForZone(b.ftp, 'Z2');
+  const z2txt = pw2 ? `${pw2.lo}-${pw2.hi} W` : 'RPE 4-5, tu peux tenir une conversation';
+  const warm = { label: '🔥 Échauffement (10 min)', items: ['Montée progressive jusqu\'en Z2.', '3 × 20 s d\'accélérations souples (récup 40 s) pour réveiller les jambes.'] };
+  const cool = { label: '🧊 Retour au calme', items: ['5-10 min très facile en Z1, respiration calme.'] };
+
+  if (slot.zone === 'Z4') {
+    const set = bikeThresholdSet(phaseId, deload, b.ftp);
+    return { title: slot.intent, focus: 'Seuil (FTP)', durationMin: dur, blocks: [
+      { label: '🔥 Échauffement (15 min)', items: ['Montée progressive + 3 × 1 min en montant vers le seuil (récup 1 min).'] },
+      { label: '🎯 Bloc principal', items: [set, 'Cadence 85-95 rpm. Reste RÉGULIER : ne pars pas trop fort, tiens la puissance.'] },
+      cool ], notes: ['Objectif : repousser ton FTP, le moteur de tout ton vélo Ironman.'] };
   }
-  if (deload) lines.push('🔻 Semaine de deload : volume réduit, reste facile.');
-  return { title: slot.intent, lines };
+  if (slot.zone === 'Z3') {
+    const pw3 = powerForZone(b.ftp, 'Z3');
+    return { title: slot.intent, focus: 'Tempo', durationMin: dur, blocks: [warm,
+      { label: '🎯 Bloc principal', items: [`${Math.max(20, dur - 25)} min en continu Z3 ${pw3 ? `(${pw3.lo}-${pw3.hi} W)` : '(RPE 6-7, phrases courtes)'} — cadence 85-90 rpm.`] },
+      cool ], notes: [] };
+  }
+  // Z1 / Z2 (endurance, sortie longue)
+  const main = { label: '🎯 Bloc principal', items: [`${Math.max(20, dur - 15)} min en continu Z2 (${z2txt}) — cadence 85-95 rpm, fluide.`] };
+  if (slot.long) main.items.push('Ravitaillement : bois toutes les 15-20 min ; ~60 g de glucides/h au-delà d\'1 h.', 'Reste DANS la zone : la discipline du facile, c\'est ce qui construit ton moteur aérobie.');
+  return { title: slot.intent, focus: slot.long ? 'Endurance longue' : 'Base aérobie', durationMin: dur, blocks: [warm, main, cool], notes: [] };
+}
+
+function bikeThresholdSet(phaseId, deload, ftp) {
+  const plan = ({ hyper: { reps: 3, work: 5, rec: 3 }, strength: { reps: 4, work: 6, rec: 3 }, specific: { reps: 5, work: 8, rec: 4 }, peak: { reps: 4, work: 4, rec: 3 } })[phaseId] || { reps: 4, work: 6, rec: 3 };
+  let reps = plan.reps; if (deload) reps = Math.max(2, reps - 2);
+  const pw = powerForZone(ftp, 'Z4');
+  const target = pw ? `${pw.lo}-${pw.hi} W` : 'RPE 8 — dur mais soutenable';
+  return `${reps} × ${plan.work} min en Z4 (${target}) — récup ${plan.rec} min facile entre chaque.`;
+}
+
+function runSession(slot, dur, b, phaseId, deload) {
+  const thr = thresholdPaceFrom5k(b.run5kSec);
+  const warm = { label: '🔥 Échauffement (10 min)', items: ['Footing très lent + mobilité chevilles/hanches.', '3-4 lignes droites en accélération progressive (80 m).'] };
+  const cool = { label: '🧊 Retour au calme', items: ['5-10 min footing lent + étirements doux mollets/quadriceps.'] };
+
+  if (slot.zone === 'Z3') {
+    const pace = thr ? thr * 1.04 : null;
+    const blocks = phaseId === 'specific'
+      ? [`2 × 15 min à allure tempo${pace ? ` (~${fmtPace(pace)})` : ' (RPE 6-7)'} — récup 3 min footing lent.`]
+      : [`${Math.max(15, dur - 20)} min en continu à allure tempo${pace ? ` (~${fmtPace(pace)})` : ' (RPE 6-7, phrases courtes)'}.`];
+    return { title: slot.intent, focus: 'Tempo / seuil', durationMin: dur, blocks: [warm, { label: '🎯 Bloc principal', items: blocks }, cool], notes: ['Le tempo améliore ton allure soutenable sur le marathon de l\'Ironman.'] };
+  }
+  // Z2 / longue
+  const pace = thr ? thr * 1.15 : null;
+  const main = { label: '🎯 Bloc principal', items: [`${Math.max(20, dur - 15)} min en Z2${pace ? ` (~${fmtPace(pace)})` : ' (RPE 4-5, tu peux parler)'} — foulée légère, cadence ~170-180 ppm.`] };
+  if (slot.long) main.items.push('Si besoin en début de bloc : alterne 9 min course / 1 min marche.', 'Ravitaille-toi (gel/boisson) au-delà de 75 min.');
+  return { title: slot.intent, focus: slot.long ? 'Endurance longue' : 'Base aérobie', durationMin: dur, blocks: [warm, main, cool], notes: [] };
+}
+
+function swimSession(dur, b, phaseId, deload, slot) {
+  const css = b.cssSec100 ? Math.round(b.cssSec100) : null;
+  const cssTxt = css ? `${fmtSec(css)}/100m` : 'allure soutenue mais contrôlée';
+  const reps = ({ hyper: 6, strength: 8, specific: 10, peak: 6 })[phaseId] || 6;
+  const r = deload ? Math.max(4, reps - 2) : reps;
+  const isThreshold = /seuil/i.test(slot.intent);
+  const main = isThreshold
+    ? `${r} × 100 m à allure seuil (CSS ~${cssTxt}) — repos 20 s.`
+    : `${r} × 100 m en aérobie souple (~CSS +8 s) — repos 15 s, technique nette.`;
+  return { title: slot.intent, focus: 'Natation', durationMin: dur, blocks: [
+    { label: '🔥 Échauffement', items: ['200-300 m easy en alternant crawl / dos.'] },
+    { label: '🛠️ Éducatifs', items: ['4 × 50 m technique (rattrapé, poings fermés, 6 battements-3 mvts) — 15 s de repos.'] },
+    { label: '🎯 Série principale', items: [main, css ? 'Cale ta vitesse sur l\'horloge, pas au feeling.' : 'Pas de chrono ? Reste régulier, expire dans l\'eau, roule les épaules.'] },
+    { label: '🧊 Retour au calme', items: ['100-200 m easy, respiration ample.'] }
+  ], notes: ['Pas de piscine ce jour ? Travail à sec 15-20 min : élastiques de nage (tirage crawl) + gainage + mobilité épaules.'] };
+}
+
+function brickSession(dur, b, slot) {
+  const bike = Math.round(dur * 0.8), run = Math.max(15, dur - bike);
+  const pw2 = powerForZone(b.ftp, 'Z2');
+  const thr = thresholdPaceFrom5k(b.run5kSec);
+  return { title: slot.intent, focus: 'Enchaînement vélo→course', durationMin: dur, blocks: [
+    { label: '🚴 Vélo', items: [`${bike} min en Z2 ${pw2 ? `(${pw2.lo}-${pw2.hi} W)` : '(RPE 4-5)'} — garde des jambes pour la course.`] },
+    { label: '🔁 Transition (T2)', items: ['Change vite (< 5 min). Vélo → chaussures de course immédiatement.'] },
+    { label: '🏃 Course', items: [`${run} min en partant CONTRÔLÉ${thr ? ` (~${fmtPace(thr * 1.12)})` : ' (RPE 5)'} — les jambes seront lourdes les 5 premières min, c\'est normal et c\'est l\'intérêt.`] }
+  ], notes: ['Le brick entraîne la sensation « jambes de coton » du jour J : c\'est la séance la plus spécifique de l\'Ironman.'] };
+}
+
+function ftpTest() {
+  return { title: 'Test FTP (vélo)', focus: 'Mesure', durationMin: 50, blocks: [
+    { label: '🔥 Échauffement (15 min)', items: ['Montée progressive + 3 × 1 min vifs (récup 1 min).'] },
+    { label: '🎯 Test', items: ['20 min le plus FORT que tu peux tenir RÉGULIER (RPE 8-9).', 'Note la puissance moyenne (ou vitesse/résistance + RPE).'] },
+    { label: '🧊 Retour au calme', items: ['10 min très facile.'] }
+  ], notes: ['FTP ≈ 95 % de la moyenne des 20 min. Ne pars pas en sprint : c\'est un effort dur et constant.'] };
+}
+function run5kTest() {
+  return { title: 'Test 5 km (course)', focus: 'Mesure', durationMin: 40, blocks: [
+    { label: '🔥 Échauffement (10 min)', items: ['Footing lent + 3-4 lignes droites.'] },
+    { label: '🎯 Test', items: ['5 km le plus vite possible à allure RÉGULIÈRE.', 'Note le temps total.'] },
+    { label: '🧊 Retour au calme', items: ['5-10 min footing lent.'] }
+  ], notes: ['Gère l\'allure : mieux vaut finir fort que partir trop vite et exploser.'] };
+}
+function cssTest() {
+  return { title: 'Test CSS (natation)', focus: 'Mesure', durationMin: 45, blocks: [
+    { label: '🔥 Échauffement', items: ['200-300 m easy + 4 × 25 m progressifs.'] },
+    { label: '🎯 Test', items: ['400 m chrono (effort dur régulier).', 'Repos 5 min complet.', '200 m chrono.'] },
+    { label: '🧮 Calcul', items: ['CSS = (400 − 200) m ÷ (temps400 − temps200) → ton allure seuil de nage.'] }
+  ], notes: ['Garde une allure régulière sur chaque distance, ne pars pas trop vite.'] };
+}
+
+/* Aplatit une séance détaillée en texte (pour le coach IA). */
+export function detailToText(detail) {
+  if (!detail) return '';
+  if (detail.lines) return detail.lines.join(' ');
+  const parts = [detail.title];
+  (detail.blocks || []).forEach((bl) => parts.push(`${bl.label}: ${bl.items.join(' / ')}`));
+  if (detail.notes && detail.notes.length) parts.push('Notes: ' + detail.notes.join(' '));
+  return parts.join(' | ');
 }
 
 function enduranceDuration(state, slot, deload) {
@@ -242,7 +394,7 @@ export function nutritionTarget(state, iso = todayISO()) {
   const factor = NUTRITION.kcalPhaseFactor[phaseId] ?? 1;
   // ajout calorique selon endurance planifiée du jour
   const plan = todayPlan(state, iso);
-  const endMin = ['bike', 'run', 'swim', 'brick'].includes(plan.slot.type) ? (plan.detail.durMin || estDur(plan)) : 0;
+  const endMin = ['bike', 'run', 'swim', 'brick'].includes(plan.slot.type) ? (plan.detail.durationMin || 0) : 0;
   const endHours = endMin / 60;
   const proteinG = Math.round((state.profile.weightLb || 140) * NUTRITION.proteinGPerLb);
   const carbsG = Math.round((state.profile.weightLb || 140) * 1.5 + endHours * NUTRITION.carbsPerEnduranceHour);
@@ -253,7 +405,6 @@ export function nutritionTarget(state, iso = todayISO()) {
   kcal = Math.max(kcal, macroKcal);
   return { kcal, proteinG, carbsG, fatG, note: emphasisNote(state.profile.emphasis, phaseId) };
 }
-function estDur(plan) { return plan.detail && plan.detail.lines ? 60 : 50; }
 function emphasisNote(emphasis, phaseId) {
   if (phaseId === 'hyper') return 'Léger surplus : c\'est le moment de construire du muscle.';
   if (phaseId === 'specific') return 'Mange pour soutenir le volume : glucides autour des grosses séances.';

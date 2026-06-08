@@ -10,6 +10,19 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const num = (id) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
 const val = (id) => document.getElementById(id).value.trim();
 
+// Rendu d'une séance détaillée (blocs échauffement / corps / retour au calme + notes).
+function sessionBlocksHTML(detail) {
+  if (detail.lines) return `<ul class="lines">${detail.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`;
+  let html = '';
+  (detail.blocks || []).forEach((bl) => {
+    html += `<div class="sblock"><div class="sblock-h">${esc(bl.label)}</div><ul class="lines">${bl.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>`;
+  });
+  if (detail.notes && detail.notes.length) {
+    html += `<div class="snotes">${detail.notes.map((n) => `<div>💡 ${esc(n)}</div>`).join('')}</div>`;
+  }
+  return html;
+}
+
 /* =================== ONBOARDING =================== */
 export function renderOnboarding(el) {
   const p = S.getState().profile;
@@ -93,8 +106,8 @@ export function renderToday(el) {
     <div class="card hero">
       <div class="muted">${plan.phase.emoji} ${plan.phase.name} · Semaine ${plan.week.index + 1}${plan.week.deload ? ' · 🔻 DELOAD' : ''}</div>
       <h1>${esc(plan.detail.title)}</h1>
-      <ul class="lines">${plan.detail.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
-      <div class="muted small">Multiplicateur du jour : ×${plan.mult}</div>
+      <div class="muted small">${plan.detail.focus ? esc(plan.detail.focus) + ' · ' : ''}${plan.detail.durationMin ? '~' + plan.detail.durationMin + ' min · ' : ''}intensité du jour ×${plan.mult}</div>
+      ${sessionBlocksHTML(plan.detail)}
     </div>
 
     <div class="card">

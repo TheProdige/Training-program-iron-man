@@ -4,20 +4,24 @@ import { APP_VERSION } from './data.js';
 
 const KEY = 'ironforge.state';
 
+/* Ligne de base du propriétaire (issue de docs/INTAKE.md).
+   L'app s'ouvre déjà configurée pour lui : il n'y a plus qu'à logger et ajuster.
+   Les repères non encore mesurés (FTP, CSS, pompes, tractions…) sont laissés à null
+   et seront remplis pendant la Semaine 0. Tout est modifiable dans l'écran Profil. */
 function emptyState() {
   return {
     version: APP_VERSION,
-    onboarded: false,
+    onboarded: true,
     profile: {
-      name: '', age: null, sex: 'H', heightCm: null,
-      weightLb: null, goalWeightLb: null, sleepNeed: 8,
+      name: '', age: 19, sex: 'H', heightCm: 175,
+      weightLb: 140, goalWeightLb: 160, sleepNeed: 8,
       emphasis: 'balanced',                 // balanced | muscle | ironman
       startDate: todayISO(), raceDate: null, // raceDate null => 48 semaines
       units: { weight: 'lb', distance: 'km' }
     },
     benchmarks: {
-      ftp: null, run5kSec: null, cssSec100: null,
-      bench5rm: null, squat5rm: null, maxPushups: null, maxPullups: null,
+      ftp: null, run5kSec: 1350, cssSec100: null,   // 5 km ≈ 22:30 (à reconfirmer en test)
+      bench5rm: 135, squat5rm: null, maxPushups: null, maxPullups: null,
       restingHr: null, maxHr: null, updatedAt: null
     },
     equipment: { dumbbellMaxLb: null, kettlebells: '', benchIncline: true, homeTrainer: true, roadBike: true, poolPerWeek: 1, hasFitbit: false },
