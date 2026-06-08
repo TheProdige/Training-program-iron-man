@@ -31,15 +31,37 @@ Il ne suppose **rien** sur ta forme. Il part **prudent** (≈ 90 % de tes repèr
   charges et durées si tu es fatigué (de ×1.05 « en feu » à ×0.65 « cassé »).
 - **Deload automatique** toutes les 4 semaines et **affûtage** avant la course.
 
+## Le coach IA (💬)
+
+En option, tu peux activer un **coach IA conversationnel propulsé par Claude (Opus)**. Tu lui
+écris en langage naturel (« j'ai mal dormi, je tire un peu du genou, j'adapte comment ? ») et il
+répond en connaissant **tes vraies données** : phase du macrocycle, séance du jour, ACWR, dernières
+séances loggées, 1RM. Il explique le *pourquoi*, ajuste tes séances et repère les signaux d'alerte.
+
+- Réponses en **streaming**, pensée adaptative.
+- Nécessite une **clé API Anthropic** (console.anthropic.com), saisie dans l'app et stockée
+  **uniquement en local** (jamais commitée, envoyée seulement à l'API Claude).
+- Sans clé, l'app reste 100 % fonctionnelle : le moteur adaptatif n'a besoin d'aucune clé.
+
 ## Les écrans
 
 - **🎯 Aujourd'hui** — ta séance du jour chiffrée (charges, watts, allures, FC), ton ressenti, ton ACWR.
 - **🗺️ Plan** — vue du macrocycle complet + n'importe quelle semaine en détail.
+- **💬 Coach** — chat avec ton coach IA (voir ci-dessus).
 - **✍️ Logger** — enregistre tes séances (séries/reps/charge/RPE en muscu, durée/zone/puissance/FC en endurance).
 - **📈 Progrès** — charge hebdo, courbe de 1RM estimé, répartition par discipline, progression du programme.
 - **⚙️ Profil** — tes repères (FTP, CSS, allure seuil, 1RM) ; mets-les à jour quand tu retestes, tout se recale. Export/import de tes données.
 
-## Lancer l'app
+## En ligne
+
+L'app est déployée automatiquement sur **GitHub Pages** à chaque push (workflow
+`.github/workflows/pages.yml`) :
+
+➡️ **https://theprodige.github.io/Training-program-iron-man/**
+
+Sur mobile : ouvre ce lien puis « Ajouter à l'écran d'accueil » pour l'installer comme une app.
+
+## Lancer en local
 
 C'est du HTML/CSS/JS pur, **sans build ni dépendance**. Il faut juste un serveur HTTP local
 (le service worker / les modules ES ne marchent pas en `file://`).
@@ -66,7 +88,10 @@ js/
   data.js               bibliothèque d'exercices, phases, templates hebdo, zones
   engine.js             périodisation + planner + moteur adaptatif (progression, ACWR)
   charts.js             graphiques SVG sans dépendance
+  coach.js              coach IA (appel API Claude en streaming, contexte athlète)
   views.js              rendu des écrans + interactions
+.github/workflows/
+  pages.yml             déploiement automatique sur GitHub Pages
 ```
 
 > ⚠️ Outil de planification, pas un avis médical. Écoute ton corps, et fais valider par un pro

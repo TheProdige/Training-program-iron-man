@@ -166,3 +166,16 @@ ul.ex-list .prescr { color: var(--gold); font-weight: 700; font-variant-numeric:
 .empty .big { font-size: 40px; margin-bottom: 8px; }
 
 hr.sep { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+
+/* Coach IA */
+.coach-wrap { display: flex; flex-direction: column; gap: 10px; }
+.coach-scroll { display: flex; flex-direction: column; gap: 10px; min-height: 40vh; max-height: calc(100vh - 280px); overflow-y: auto; padding: 4px; }
+.cbubble { max-width: 88%; padding: 10px 13px; border-radius: 14px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+.cbubble.me { align-self: flex-end; background: var(--red); color: #fff; border-bottom-right-radius: 4px; }
+.cbubble.ai { align-self: flex-start; background: var(--bg3); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.coach-input { display: flex; gap: 8px; align-items: flex-end; }
+.coach-input textarea { resize: none; max-height: 140px; }
+.coach-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.coach-typing { opacity: .6; }
+@keyframes blink { 50% { opacity: .2; } }
+.coach-typing { animation: blink 1s infinite; }

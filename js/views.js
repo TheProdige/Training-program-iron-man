@@ -8,12 +8,14 @@ import {
   DAY_NAMES, DAY_SHORT, DISCIPLINE_ICON, DISCIPLINE_LABEL, MAIN_LIFTS, LIFT_TEMPLATES, paceStr
 } from './data.js';
 import { lineChart, barChart } from './charts.js';
+import { hasApiKey, getApiKey, setApiKey, streamReply } from './coach.js';
 
 let mountEl = null;
 let bound = false;
 let route = 'today';
 const vs = { planWeek: null, readiness: 'good', progressLift: 'Squat' };
 let logDraft = null;
+let coachBusy = false; // une requête coach en cours
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -24,11 +26,11 @@ export function mount(r) {
   const st = getState();
   if (!st.onboarded) { mountEl.innerHTML = viewOnboarding(st); updateChrome(st, 'profile'); return; }
   mountEl.innerHTML = ({
-    today: viewToday, plan: viewPlan, log: viewLog, progress: viewProgress, profile: viewProfile
+    today: viewToday, plan: viewPlan, coach: viewCoach, log: viewLog, progress: viewProgress, profile: viewProfile
   }[route] || viewToday)(st);
   updateChrome(st, route);
-  mountEl.scrollTo?.(0, 0);
-  window.scrollTo(0, 0);
+  if (route === 'coach') { scrollCoachBottom(); focusCoachInput(); }
+  else { mountEl.scrollTo?.(0, 0); window.scrollTo(0, 0); }
 }
 function rerender() { mount(route); }
 
@@ -362,6 +364,63 @@ function computeStreak(st) {
   return streak;
 }
 
+// ============================================================ COACH IA
+function viewCoach(st) {
+  if (!hasApiKey()) return coachSetupHtml();
+
+  const chat = st.coachChat || [];
+  const bubbles = chat.length
+    ? chat.map((m) => coachBubble(m.role, esc(m.content))).join('')
+    : `<div class="empty"><div class="big">💬</div>Pose ta première question à ton coach.<br/><span class="small">Ex : « j'ai mal dormi et mon genou tire un peu, j'adapte comment ma séance de demain ? »</span></div>`;
+
+  return `
+  <h1 class="screen-title">💬 Coach IA</h1>
+  <div class="coach-wrap">
+    <div class="coach-scroll" id="coachScroll">
+      ${bubbles}
+      <div id="coachStreaming" style="display:none">${coachBubble('assistant', '<span class="coach-typing">…</span>')}</div>
+    </div>
+    <div class="coach-input">
+      <textarea id="coachInput" rows="1" placeholder="Écris à ton coach…" ${coachBusy ? 'disabled' : ''}></textarea>
+      <button class="btn small" style="width:auto" data-action="coach-send" ${coachBusy ? 'disabled' : ''}>${coachBusy ? '…' : '➤'}</button>
+    </div>
+    <div class="coach-tools">
+      <button class="btn ghost small" data-action="coach-clear" style="width:auto">🧹 Effacer</button>
+      <button class="btn ghost small" data-action="coach-settings" style="width:auto">🔑 Clé API</button>
+      <span class="small muted">Modèle Claude Opus · clé stockée en local</span>
+    </div>
+  </div>`;
+}
+
+function coachBubble(role, html) {
+  return `<div class="cbubble ${role === 'user' ? 'me' : 'ai'}">${role === 'assistant' ? '🔥 ' : ''}${html}</div>`;
+}
+
+function coachSetupHtml() {
+  return `<h1 class="screen-title">💬 Coach IA</h1>
+  <div class="notice">
+    Pour activer ton coach IA conversationnel, ajoute ta <b>clé API Anthropic</b>.
+    Elle est stockée <b>uniquement sur cet appareil</b> (localStorage), n'est jamais commitée ni envoyée ailleurs qu'à l'API Claude.
+    Récupère-la sur <b>console.anthropic.com</b> (un petit coût à l'usage s'applique).
+  </div>
+  <div class="card">
+    <h3>Clé API Anthropic</h3>
+    <input id="coachKey" type="password" placeholder="sk-ant-..." autocomplete="off" />
+    <button class="btn" style="margin-top:10px" data-action="coach-savekey">Activer le coach</button>
+    <p class="small muted" style="margin-top:10px">Sans clé, l'app reste 100% fonctionnelle (le moteur adaptatif ne nécessite aucune clé). Le coach IA ajoute juste le chat.</p>
+  </div>`;
+}
+
+function scrollCoachBottom() {
+  const el = document.getElementById('coachScroll');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+function focusCoachInput() {
+  const el = document.getElementById('coachInput');
+  if (el && !coachBusy) { autoGrow(el); }
+}
+function autoGrow(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
+
 // ============================================================ PROFILE
 function viewProfile(st) {
   const p = st.profile, m = p.metrics, l = p.lifts1rm;
@@ -408,6 +467,11 @@ function bindOnce() {
   mountEl.addEventListener('change', onChange);
   mountEl.addEventListener('submit', onSubmit);
   mountEl.addEventListener('input', onInput);
+  mountEl.addEventListener('keydown', (e) => {
+    if (e.target.id === 'coachInput' && e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); coachSend();
+    }
+  });
 }
 
 function onSubmit(e) {
@@ -422,6 +486,7 @@ function onChange(e) {
 }
 
 function onInput(e) {
+  if (e.target.id === 'coachInput') { autoGrow(e.target); return; }
   // Mise à jour live du brouillon de log (séries muscu / champs endurance)
   if (!logDraft) return;
   const row = e.target.closest('.set-grid');
@@ -453,6 +518,10 @@ function onClick(e) {
     case 'export': doExport(); break;
     case 'import': doImport(); break;
     case 'reset': doReset(); break;
+    case 'coach-savekey': coachSaveKey(); break;
+    case 'coach-send': coachSend(); break;
+    case 'coach-clear': coachClear(); break;
+    case 'coach-settings': coachSettings(); break;
   }
 }
 
@@ -590,6 +659,67 @@ function doImport() {
 function doReset() {
   if (!confirm('Tout effacer et recommencer ? (pense à exporter avant)')) return;
   resetAll(); route = 'today'; logDraft = null; vs.planWeek = null; rerender();
+}
+
+// ---- Coach IA
+function coachSaveKey() {
+  const el = document.getElementById('coachKey');
+  const v = (el?.value || '').trim();
+  if (!v.startsWith('sk-ant-')) { toast('Clé invalide (format sk-ant-...).'); return; }
+  setApiKey(v);
+  toast('Coach activé 🔥'); rerender();
+}
+
+function coachSettings() {
+  const cur = getApiKey();
+  const v = prompt('Clé API Anthropic (vide = supprimer) :', cur);
+  if (v === null) return;
+  setApiKey(v.trim());
+  toast(v.trim() ? 'Clé mise à jour' : 'Clé supprimée'); rerender();
+}
+
+function coachClear() {
+  if (!confirm('Effacer toute la discussion avec le coach ?')) return;
+  update((st) => { st.coachChat = []; });
+  rerender();
+}
+
+function coachSend() {
+  if (coachBusy) return;
+  const input = document.getElementById('coachInput');
+  const text = (input?.value || '').trim();
+  if (!text) return;
+
+  update((st) => { st.coachChat.push({ role: 'user', content: text }); });
+  coachBusy = true;
+  rerender(); // affiche le message + champ désactivé
+
+  // Affiche la bulle de streaming
+  const streamWrap = document.getElementById('coachStreaming');
+  if (streamWrap) streamWrap.style.display = 'block';
+  const streamBubble = streamWrap?.querySelector('.cbubble');
+  let acc = '';
+  scrollCoachBottom();
+
+  const history = getState().coachChat.slice(-20).map((m) => ({ role: m.role, content: m.content }));
+
+  streamReply(history, {
+    onDelta: (chunk) => {
+      acc += chunk;
+      if (streamBubble) streamBubble.innerHTML = '🔥 ' + esc(acc);
+      scrollCoachBottom();
+    },
+    onDone: (full) => {
+      coachBusy = false;
+      update((st) => { st.coachChat.push({ role: 'assistant', content: full || '(réponse vide)' }); });
+      rerender(); scrollCoachBottom();
+    },
+    onError: (err) => {
+      coachBusy = false;
+      update((st) => { st.coachChat.push({ role: 'assistant', content: '⚠️ ' + err.message }); });
+      rerender(); scrollCoachBottom();
+    }
+  });
 }
 
 // ---- petit toast

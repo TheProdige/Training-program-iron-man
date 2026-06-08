@@ -1,5 +1,5 @@
 // Service worker — cache offline-first pour que l'app marche sans réseau.
-const CACHE = 'ironforge-v1';
+const CACHE = 'ironforge-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -10,7 +10,8 @@ const ASSETS = [
   './js/data.js',
   './js/engine.js',
   './js/charts.js',
-  './js/views.js'
+  './js/views.js',
+  './js/coach.js'
 ];
 
 self.addEventListener('install', (e) => {

@@ -13,7 +13,7 @@ document.getElementById('tabbar').addEventListener('click', (e) => {
 
 // Démarrage
 const initial = (location.hash || '#today').slice(1);
-go(['today', 'plan', 'log', 'progress', 'profile'].includes(initial) ? initial : 'today');
+go(['today', 'plan', 'coach', 'log', 'progress', 'profile'].includes(initial) ? initial : 'today');
 
 // Service worker (mode installable + hors-ligne)
 if ('serviceWorker' in navigator) {

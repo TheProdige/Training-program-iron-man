@@ -34,7 +34,8 @@ const DEFAULT_STATE = {
     }
   },
   sessions: [],   // séances loggées : voir engine.logSession
-  history: {}     // historique par exercice : { exoName: [{date, weight, reps, rpe, e1rm}] }
+  history: {},    // historique par exercice : { exoName: [{date, weight, reps, rpe, e1rm}] }
+  coachChat: []   // historique de discussion avec le coach IA : [{role, content}]
 };
 
 let state = load();
