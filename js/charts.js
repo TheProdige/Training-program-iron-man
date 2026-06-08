@@ -1,62 +1,54 @@
-// charts.js — petits graphiques SVG sans dépendance (fonctionne hors-ligne).
+/* IRONFORGE — mini-graphes en canvas, sans dépendance (hors-ligne). */
 
-function svg(w, h, inner) {
-  return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img">${inner}</svg>`;
-}
-
-// Graphe en ligne. series = [{ points:[{x,y}], color }]; x = index, y = valeur.
-export function lineChart(series, opts = {}) {
-  const w = opts.w || 320, h = opts.h || 140, pad = 26;
-  const all = series.flatMap((s) => s.points);
-  if (all.length < 1) return emptyChart('Pas encore de données');
-  const ys = all.map((p) => p.y);
-  const xs = all.map((p) => p.x);
-  let minY = Math.min(...ys), maxY = Math.max(...ys);
-  if (minY === maxY) { minY -= 1; maxY += 1; }
+export function lineChart(canvas, points, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.clientWidth * devicePixelRatio;
+  const H = canvas.height = (opts.height || 160) * devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+  if (!points.length) { drawEmpty(ctx, W, H); return; }
+  const pad = 24 * devicePixelRatio;
+  const xs = points.map((p) => p.x), ys = points.map((p) => p.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const spanX = maxX - minX || 1, spanY = maxY - minY || 1;
-  const X = (x) => pad + ((x - minX) / spanX) * (w - pad - 8);
-  const Y = (y) => h - pad - ((y - minY) / spanY) * (h - pad - 12);
+  const minY = opts.minY ?? Math.min(...ys), maxY = opts.maxY ?? Math.max(...ys);
+  const sx = (x) => pad + (maxX === minX ? 0.5 : (x - minX) / (maxX - minX)) * (W - 2 * pad);
+  const sy = (y) => H - pad - (maxY === minY ? 0.5 : (y - minY) / (maxY - minY)) * (H - 2 * pad);
 
-  let grid = '';
-  for (let i = 0; i <= 3; i++) {
-    const gy = pad + ((h - pad - 12) / 3) * i + 0;
-    const val = Math.round(maxY - (spanY / 3) * i);
-    grid += `<line x1="${pad}" y1="${gy}" x2="${w - 8}" y2="${gy}" stroke="#2a313c" stroke-width="1"/>`;
-    grid += `<text x="2" y="${gy + 3}" fill="#8b949e" font-size="9">${val}</text>`;
-  }
+  // axe
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = devicePixelRatio;
+  ctx.beginPath(); ctx.moveTo(pad, H - pad); ctx.lineTo(W - pad, H - pad); ctx.stroke();
 
-  let paths = '';
-  for (const s of series) {
-    if (!s.points.length) continue;
-    const d = s.points.map((p, i) => `${i ? 'L' : 'M'}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join(' ');
-    paths += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    paths += s.points.map((p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="2.5" fill="${s.color}"/>`).join('');
-  }
-  return svg(w, h, grid + paths);
+  // ligne
+  ctx.strokeStyle = opts.color || '#ff6a3d'; ctx.lineWidth = 2.5 * devicePixelRatio;
+  ctx.beginPath();
+  points.forEach((p, i) => { const X = sx(p.x), Y = sy(p.y); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+  ctx.stroke();
+
+  // points
+  ctx.fillStyle = opts.color || '#ff6a3d';
+  points.forEach((p) => { ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y), 3 * devicePixelRatio, 0, 7); ctx.fill(); });
 }
 
-// Barres (ex : charge hebdo). bars = [{label, value, color?}]
-export function barChart(bars, opts = {}) {
-  const w = opts.w || 320, h = opts.h || 140, pad = 24;
-  if (!bars.length) return emptyChart('Pas encore de données');
-  const maxV = Math.max(...bars.map((b) => b.value), 1);
-  const bw = (w - pad - 6) / bars.length;
-  let out = '';
-  for (let i = 0; i <= 2; i++) {
-    const gy = pad + ((h - pad - 16) / 2) * i;
-    out += `<line x1="${pad}" y1="${gy}" x2="${w - 4}" y2="${gy}" stroke="#2a313c"/>`;
-  }
+export function barChart(canvas, bars, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.clientWidth * devicePixelRatio;
+  const H = canvas.height = (opts.height || 160) * devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+  if (!bars.length) { drawEmpty(ctx, W, H); return; }
+  const pad = 24 * devicePixelRatio;
+  const maxV = Math.max(...bars.map((b) => b.v), 1);
+  const bw = (W - 2 * pad) / bars.length;
   bars.forEach((b, i) => {
-    const bh = (b.value / maxV) * (h - pad - 18);
-    const x = pad + i * bw + 2;
-    const y = h - 16 - bh;
-    out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw - 4).toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${b.color || '#e23636'}"/>`;
-    if (b.label) out += `<text x="${(x + (bw - 4) / 2).toFixed(1)}" y="${h - 4}" fill="#8b949e" font-size="9" text-anchor="middle">${b.label}</text>`;
+    const h = (b.v / maxV) * (H - 2 * pad);
+    ctx.fillStyle = b.color || '#3da8ff';
+    ctx.fillRect(pad + i * bw + bw * 0.15, H - pad - h, bw * 0.7, h);
   });
-  return svg(w, h, out);
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.beginPath(); ctx.moveTo(pad, H - pad); ctx.lineTo(W - pad, H - pad); ctx.stroke();
 }
 
-function emptyChart(msg) {
-  return `<div class="empty small"><div class="big">📊</div>${msg}</div>`;
+function drawEmpty(ctx, W, H) {
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = `${13 * devicePixelRatio}px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.fillText('Pas encore de données — logge tes séances.', W / 2, H / 2);
 }

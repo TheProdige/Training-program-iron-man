@@ -1,94 +1,161 @@
-// store.js — persistance locale (localStorage) + état de l'app.
-// Tout reste sur l'appareil de l'utilisateur, rien n'est envoyé en ligne.
+/* IRONFORGE — store local. État versionné dans localStorage, photos dans IndexedDB.
+   Aucune donnée ne quitte l'appareil (sauf l'appel optionnel à l'API Claude). */
+import { APP_VERSION } from './data.js';
 
-const KEY = 'ironforge.state.v1';
+const KEY = 'ironforge.state';
 
-const DEFAULT_STATE = {
-  version: 1,
-  onboarded: false,
-  startDate: null,                 // ISO date du début du programme
-  profile: {
-    name: '',
-    bodyweightKg: 80,
-    heightCm: 178,
-    age: 28,
-    sex: 'M',
-    simpleMode: true,              // mode débutant : langage simple, pas de chiffres compliqués
-    raceType: '70.3',              // '70.3' | 'full'
-    raceDate: null,                // ISO
-    daysPerWeek: 5,
-    // Repères de performance (servent au calcul des zones / prescriptions)
-    metrics: {
-      ftpWatts: 200,               // puissance seuil vélo
-      swimCss: 110,                // Critical Swim Speed en sec/100m
-      runThreshold: 300,           // allure seuil course en sec/km
-      maxHr: 190,
-      restHr: 55
+function emptyState() {
+  return {
+    version: APP_VERSION,
+    onboarded: false,
+    profile: {
+      name: '', age: null, sex: 'H', heightCm: null,
+      weightLb: null, goalWeightLb: null, sleepNeed: 8,
+      emphasis: 'balanced',                 // balanced | muscle | ironman
+      startDate: todayISO(), raceDate: null, // raceDate null => 48 semaines
+      units: { weight: 'lb', distance: 'km' }
     },
-    // 1RM (max théorique) des mouvements principaux, en kg
-    lifts1rm: {
-      'Squat': 100,
-      'Développé couché': 80,
-      'Soulevé de terre': 120,
-      'Développé militaire': 50,
-      'Tractions/Tirage': 70
-    }
-  },
-  sessions: [],   // séances loggées : voir engine.logSession
-  history: {},    // historique par exercice : { exoName: [{date, weight, reps, rpe, e1rm}] }
-  coachChat: []   // historique de discussion avec le coach IA : [{role, content}]
-};
+    benchmarks: {
+      ftp: null, run5kSec: null, cssSec100: null,
+      bench5rm: null, squat5rm: null, maxPushups: null, maxPullups: null,
+      restingHr: null, maxHr: null, updatedAt: null
+    },
+    equipment: { dumbbellMaxLb: null, kettlebells: '', benchIncline: true, homeTrainer: true, roadBike: true, poolPerWeek: 1, hasFitbit: false },
+    logs: { sessions: [], nutrition: [], body: [], readiness: [], reviews: [] },
+    settings: { coachApiKey: '', coachModel: 'claude-opus-4-8', theme: 'dark' }
+  };
+}
 
-let state = load();
+export function todayISO(d = new Date()) {
+  const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return z.toISOString().slice(0, 10);
+}
+
+let _state = load();
 
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return structuredClone(DEFAULT_STATE);
+    if (!raw) return emptyState();
     const parsed = JSON.parse(raw);
-    return deepMerge(structuredClone(DEFAULT_STATE), parsed);
+    return migrate(parsed);
   } catch (e) {
-    console.warn('Lecture state échouée, reset.', e);
-    return structuredClone(DEFAULT_STATE);
+    console.warn('State illisible, réinitialisation.', e);
+    return emptyState();
   }
 }
 
+function migrate(s) {
+  // Fusion défensive avec le schéma courant (ajoute les clés manquantes).
+  const base = emptyState();
+  const merged = deepMerge(base, s);
+  merged.version = APP_VERSION;
+  return merged;
+}
+
 function deepMerge(base, over) {
-  if (Array.isArray(over)) return over;
-  if (over && typeof over === 'object') {
+  if (Array.isArray(base)) return Array.isArray(over) ? over : base;
+  if (base && typeof base === 'object') {
     const out = { ...base };
-    for (const k of Object.keys(over)) {
-      out[k] = (k in base) ? deepMerge(base[k], over[k]) : over[k];
+    for (const k of Object.keys(base)) {
+      if (over && k in over) out[k] = deepMerge(base[k], over[k]);
     }
+    // garde les clés supplémentaires éventuelles d'over (ex: futures)
+    for (const k of Object.keys(over || {})) if (!(k in out)) out[k] = over[k];
     return out;
   }
   return over === undefined ? base : over;
 }
 
-export function getState() { return state; }
+export function getState() { return _state; }
 
 export function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); }
-  catch (e) { console.error('Sauvegarde échouée', e); }
+  localStorage.setItem(KEY, JSON.stringify(_state));
+  window.dispatchEvent(new CustomEvent('state-changed'));
 }
 
-export function update(mutator) {
-  mutator(state);
+export function update(fn) {
+  fn(_state);
   save();
-  return state;
 }
 
 export function resetAll() {
-  state = structuredClone(DEFAULT_STATE);
+  _state = emptyState();
   save();
 }
 
-export function exportJSON() {
-  return JSON.stringify(state, null, 2);
+/* ---------- Helpers d'ajout de logs ---------- */
+export function addSession(session) {
+  session.id = session.id || crypto.randomUUID();
+  _state.logs.sessions.push(session);
+  save();
+}
+export function addNutrition(entry) {
+  // une entrée par jour : on remplace si même date
+  _state.logs.nutrition = _state.logs.nutrition.filter((n) => n.date !== entry.date);
+  _state.logs.nutrition.push(entry);
+  save();
+}
+export function addBody(entry) {
+  _state.logs.body = _state.logs.body.filter((b) => b.date !== entry.date);
+  _state.logs.body.push(entry);
+  save();
+}
+export function setReadiness(entry) {
+  _state.logs.readiness = _state.logs.readiness.filter((r) => r.date !== entry.date);
+  _state.logs.readiness.push(entry);
+  save();
+}
+export function saveReview(review) {
+  _state.logs.reviews = _state.logs.reviews.filter((r) => r.weekIndex !== review.weekIndex);
+  _state.logs.reviews.push(review);
+  save();
 }
 
+/* ---------- Export / import ---------- */
+export function exportJSON() {
+  return JSON.stringify(_state, null, 2);
+}
 export function importJSON(text) {
   const parsed = JSON.parse(text);
-  state = deepMerge(structuredClone(DEFAULT_STATE), parsed);
+  _state = migrate(parsed);
   save();
+}
+
+/* ---------- Photos (IndexedDB) ---------- */
+const DB_NAME = 'ironforge-photos';
+function idb() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('photos', { keyPath: 'id' });
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+export async function addPhoto(blob, label) {
+  const db = await idb();
+  const id = crypto.randomUUID();
+  await new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').put({ id, date: todayISO(), label: label || '', blob });
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+  return id;
+}
+export async function listPhotos() {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readonly');
+    const req = tx.objectStore('photos').getAll();
+    req.onsuccess = () => res(req.result.sort((a, b) => a.date.localeCompare(b.date)));
+    req.onerror = () => rej(req.error);
+  });
+}
+export async function deletePhoto(id) {
+  const db = await idb();
+  await new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').delete(id);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
 }

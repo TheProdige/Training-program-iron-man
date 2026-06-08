@@ -1,237 +1,128 @@
-// data.js — base de connaissances entraînement : bibliothèque d'exercices,
-// templates de séances muscu, macrocycle (phases) et templates hebdomadaires,
-// calcul des zones d'intensité. Tout est piloté par la science de l'entraînement
-// concurrent (gestion de l'interférence muscu/endurance).
+/* IRONFORGE — données & constantes du domaine.
+   Tout est paramétrable ici : phases, exercices maison, zones, exigences Ironman. */
 
-// ----------------------------------------------------------------------------
-// 1) TEMPLATES MUSCU
-//   Chaque exo : { name, sets, rep:[min,max], main?:true, note? }
-//   `main:true` => mouvement principal suivi pour la surcharge progressive / 1RM.
-// ----------------------------------------------------------------------------
-export const LIFT_TEMPLATES = {
-  upperA: {
-    title: 'Haut du corps A — Poussée (hypertrophie)',
-    exercises: [
-      { name: 'Développé couché', sets: 4, rep: [6, 8], main: true },
-      { name: 'Développé militaire', sets: 3, rep: [8, 10] },
-      { name: 'Développé incliné haltères', sets: 3, rep: [10, 12] },
-      { name: 'Dips', sets: 3, rep: [10, 12] },
-      { name: 'Élévations latérales', sets: 3, rep: [12, 15] },
-      { name: 'Extensions triceps poulie', sets: 3, rep: [12, 15] }
-    ]
-  },
-  upperB: {
-    title: 'Haut du corps B — Tirage (hypertrophie)',
-    exercises: [
-      { name: 'Tractions/Tirage', sets: 4, rep: [6, 10], main: true },
-      { name: 'Rowing barre', sets: 4, rep: [8, 10] },
-      { name: 'Tirage horizontal', sets: 3, rep: [10, 12] },
-      { name: 'Face pull', sets: 3, rep: [15, 20] },
-      { name: 'Curl barre', sets: 3, rep: [10, 12] },
-      { name: 'Curl incliné haltères', sets: 3, rep: [12, 15] }
-    ]
-  },
-  lowerA: {
-    title: 'Bas du corps A — Squat (hypertrophie)',
-    exercises: [
-      { name: 'Squat', sets: 4, rep: [6, 8], main: true },
-      { name: 'Presse à cuisses', sets: 3, rep: [10, 12] },
-      { name: 'Leg curl', sets: 3, rep: [10, 12] },
-      { name: 'Mollets debout', sets: 4, rep: [12, 15] },
-      { name: 'Gainage', sets: 3, rep: [45, 60], note: 'secondes' }
-    ]
-  },
-  lowerB: {
-    title: 'Bas du corps B — Chaîne postérieure (hypertrophie)',
-    exercises: [
-      { name: 'Soulevé de terre', sets: 4, rep: [5, 6], main: true },
-      { name: 'Hip thrust', sets: 3, rep: [8, 10] },
-      { name: 'Fentes marchées', sets: 3, rep: [10, 12] },
-      { name: 'Leg extension', sets: 3, rep: [12, 15] },
-      { name: 'Mollets assis', sets: 4, rep: [15, 20] }
-    ]
-  },
-  upperStrength: {
-    title: 'Haut du corps — Force',
-    exercises: [
-      { name: 'Développé couché', sets: 5, rep: [4, 6], main: true },
-      { name: 'Tractions/Tirage', sets: 4, rep: [5, 7], main: true },
-      { name: 'Développé militaire', sets: 4, rep: [5, 7] },
-      { name: 'Rowing barre', sets: 4, rep: [6, 8] },
-      { name: 'Accessoires bras', sets: 2, rep: [10, 12] }
-    ]
-  },
-  lowerStrength: {
-    title: 'Bas du corps — Force',
-    exercises: [
-      { name: 'Squat', sets: 5, rep: [4, 6], main: true },
-      { name: 'Soulevé de terre', sets: 3, rep: [3, 5], main: true },
-      { name: 'Presse à cuisses', sets: 3, rep: [8, 10] },
-      { name: 'Mollets debout', sets: 4, rep: [10, 12] }
-    ]
-  },
-  fullStrength: {
-    title: 'Full-body — Force',
-    exercises: [
-      { name: 'Squat', sets: 4, rep: [4, 6], main: true },
-      { name: 'Développé couché', sets: 4, rep: [4, 6], main: true },
-      { name: 'Tractions/Tirage', sets: 4, rep: [6, 8], main: true },
-      { name: 'Développé militaire', sets: 3, rep: [6, 8] }
-    ]
-  },
-  upperMaint: {
-    title: 'Haut du corps — Maintien (lourd, peu de volume)',
-    exercises: [
-      { name: 'Développé couché', sets: 3, rep: [4, 6], main: true },
-      { name: 'Tractions/Tirage', sets: 3, rep: [5, 7], main: true },
-      { name: 'Développé militaire', sets: 2, rep: [6, 8] }
-    ]
-  },
-  lowerMaint: {
-    title: 'Bas du corps — Maintien (lourd, peu de volume)',
-    exercises: [
-      { name: 'Squat', sets: 3, rep: [4, 6], main: true },
-      { name: 'Soulevé de terre', sets: 2, rep: [3, 5], main: true },
-      { name: 'Mollets debout', sets: 3, rep: [12, 15] }
-    ]
-  },
-  fullLight: {
-    title: 'Full-body — Maintien léger (affûtage)',
-    exercises: [
-      { name: 'Squat', sets: 2, rep: [5, 5], note: 'léger, explosif' },
-      { name: 'Développé couché', sets: 2, rep: [5, 5], note: 'léger, explosif' },
-      { name: 'Tractions/Tirage', sets: 2, rep: [6, 8] },
-      { name: 'Mobilité + gainage', sets: 3, rep: [45, 45], note: 'secondes' }
-    ]
-  }
-};
+export const APP_VERSION = 2;
 
-// Mouvements principaux suivis pour les graphes 1RM
-export const MAIN_LIFTS = ['Squat', 'Développé couché', 'Soulevé de terre', 'Développé militaire', 'Tractions/Tirage'];
-
-// ----------------------------------------------------------------------------
-// 2) MACROCYCLE — phases (semaines cibles, recalculées au prorata du temps réel
-//    jusqu'à la course). Modèle "bodybuilding d'abord, puis bascule endurance".
-// ----------------------------------------------------------------------------
+/* ---------- Macrocycle : échafaudage flexible (réécrit par la revue hebdo) ---------- */
+// Proportions sur la durée totale (par défaut 48 semaines). Le moteur répartit dessus.
 export const PHASES = [
-  {
-    key: 'hypertrophy',
-    name: 'Hypertrophie — Base',
-    emphasis: 'Bodybuilding',
-    targetWeeks: 12,
-    focus: 'Construire du muscle. Endurance = base aérobie facile (Z2) pour ne pas freiner la prise de masse (effet d\'interférence).',
-    color: '#e23636'
-  },
-  {
-    key: 'strength',
-    name: 'Force + Aérobie',
-    emphasis: 'Équilibre',
-    targetWeeks: 10,
-    focus: 'Convertir le muscle en force, monter le volume aérobie et introduire le travail au seuil (FTP, tempo).',
-    color: '#f0a020'
-  },
-  {
-    key: 'specific',
-    name: 'Triathlon — Spécifique',
-    emphasis: 'Endurance',
-    targetWeeks: 10,
-    focus: 'Priorité endurance et spécificité course. Muscu réduite à 2x maintien lourd pour préserver la masse acquise.',
-    color: '#3b82f6'
-  },
-  {
-    key: 'peak',
-    name: 'Pic & Affûtage',
-    emphasis: 'Course',
-    targetWeeks: 8,
-    focus: 'Allures de course, réduction du volume (taper) pour arriver frais et affûté le jour J.',
-    color: '#a371f7'
-  }
+  { id: 'test',     name: 'Semaine 0 — Tests',        emoji: '🧪', share: 0.02, focus: 'Mesurer la ligne de base', priorities: ['test'] },
+  { id: 'hyper',    name: 'Hypertrophie + Base',      emoji: '💪', share: 0.26, focus: 'Construire du muscle, endurance facile (Z2)', priorities: ['muscle', 'aerobic-base'] },
+  { id: 'strength', name: 'Force + Montée aérobie',   emoji: '🏋️', share: 0.24, focus: 'Convertir en force, monter volume + seuil', priorities: ['strength', 'aerobic-build', 'threshold'] },
+  { id: 'specific', name: 'Ironman — Spécifique',     emoji: '🔴', share: 0.32, focus: 'Volume endurance + bricks, muscu en maintien lourd', priorities: ['endurance', 'maintain-muscle'] },
+  { id: 'peak',     name: 'Pic & Affûtage',           emoji: '🎯', share: 0.10, focus: 'Allures de course, taper, arriver frais', priorities: ['race-pace', 'taper'] },
+  { id: 'transition', name: 'Transition / Récup',     emoji: '♻️', share: 0.06, focus: 'Repos actif, on repart ensuite', priorities: ['recovery'] }
 ];
 
-// ----------------------------------------------------------------------------
-// 3) TEMPLATES HEBDO par phase (5 jours d'entraînement, 2 repos)
-//   jours indexés 0=Lun ... 6=Dim. Chaque jour = tableau de séances.
-//   Séance muscu : { kind:'lift', t:'<cle template>' }
-//   Séance endurance : { kind:'swim|bike|run|brick', focus, zone, dur }  (dur = minutes base)
-//   Repos : { kind:'rest' }
-//   Les doubles séances (muscu + endurance le même jour) sont à idéalement
-//   espacer (matin/soir) pour limiter l'interférence.
-// ----------------------------------------------------------------------------
+/* ---------- Bibliothèque d'exercices maison (haltères / KB / banc / barre traction) ---------- */
+export const EXERCISES = {
+  push:  [ 'Développé couché haltères', 'Développé incliné haltères', 'Développé militaire haltères', 'Pompes (lestées si besoin)', 'Dips entre 2 appuis' ],
+  pull:  [ 'Tractions', 'Rowing haltère un bras', 'Rowing penché haltères', 'Curl biceps haltères', 'Face pull élastique' ],
+  legs:  [ 'Goblet squat', 'Fentes marchées haltères', 'Soulevé de terre roumain haltères', 'Hip thrust', 'Mollets debout' ],
+  core:  [ 'Gainage planche', 'Gainage latéral', 'Hollow hold', 'Relevés de jambes', 'Pallof press élastique' ]
+};
+
+/* Séances muscu types selon la priorité de phase (full-body en base, split léger ensuite) */
+export const STRENGTH_TEMPLATES = {
+  hyper:    { scheme: '3-4 × 8-12', rir: '1-2', sessions: 3, note: 'Hypertrophie : tempo contrôlé, congestion.' },
+  strength: { scheme: '4-5 × 4-6',  rir: '1-2', sessions: 3, note: 'Force : charges lourdes, repos longs.' },
+  specific: { scheme: '3 × 4-6',    rir: '2-3', sessions: 2, note: 'Maintien lourd : peu de volume, on garde la force sans fatigue.' },
+  peak:     { scheme: '2 × 5',      rir: '3',   sessions: 1, note: 'Entretien léger pendant le taper.' }
+};
+
+/* ---------- Zones d'endurance ---------- */
+// % de FTP (puissance vélo) — modèle de Coggan simplifié
+export const POWER_ZONES = [
+  { z: 'Z1', label: 'Récup',    lo: 0.00, hi: 0.55 },
+  { z: 'Z2', label: 'Endurance', lo: 0.56, hi: 0.75 },
+  { z: 'Z3', label: 'Tempo',    lo: 0.76, hi: 0.90 },
+  { z: 'Z4', label: 'Seuil',    lo: 0.91, hi: 1.05 },
+  { z: 'Z5', label: 'VO2max',   lo: 1.06, hi: 1.20 }
+];
+
+/* ---------- Exigences pour FINIR un Ironman (cibles « finisher » prudentes) ---------- */
+// Sert à l'analyse du maillon faible. Ajustable.
+export const IM_TARGETS = {
+  ftpWkg: 2.8,            // W/kg utile pour rouler 180 km sans exploser
+  run5kSec: 24 * 60,      // base de vitesse course (5 km en ~24 min ou mieux)
+  swimCss100Sec: 130,     // allure seuil nage ~2:10/100m ou mieux
+  longRideMin: 300,       // savoir tenir ~5h de vélo en phase spécifique
+  longRunMin: 150         // savoir tenir ~2h30 de course
+};
+
+/* ---------- Nutrition ---------- */
+export const NUTRITION = {
+  proteinGPerLb: 0.9,           // ~2 g/kg
+  // multiplicateur calorique selon la priorité de phase (sur la maintenance)
+  kcalPhaseFactor: { hyper: 1.12, strength: 1.05, specific: 1.0, peak: 1.02, transition: 1.0, test: 1.0 },
+  carbsPerEnduranceHour: 60,    // g de glucides ajoutés par heure d'endurance planifiée
+  fatMinGPerLb: 0.3
+};
+
+export const RPE_HELP = 'RPE = effort perçu /10. 4-5 = facile, tu discutes (Z2). 8 = dur. 10 = max.';
+
+/* ---------- Templates de semaine (jours 0=Lun … 6=Dim) selon priorité de phase ---------- */
+// Chaque entrée : type de séance + intention. Le moteur chiffre selon tes repères.
 export const WEEK_TEMPLATES = {
-  hypertrophy: [
-    [{ kind: 'lift', t: 'upperA' }, { kind: 'swim', focus: 'Technique + aérobie', zone: 'Z2', dur: 30 }], // Lun
-    [{ kind: 'lift', t: 'lowerA' }],                                                                       // Mar
-    [{ kind: 'rest' }],                                                                                    // Mer
-    [{ kind: 'lift', t: 'upperB' }, { kind: 'bike', focus: 'Base aérobie', zone: 'Z2', dur: 45 }],         // Jeu
-    [{ kind: 'lift', t: 'lowerB' }, { kind: 'run', focus: 'Footing facile', zone: 'Z2', dur: 30 }],        // Ven
-    [{ kind: 'rest' }],                                                                                     // Sam
-    [{ kind: 'bike', focus: 'Sortie longue facile (alterne vélo/course)', zone: 'Z2', dur: 75 }]           // Dim
+  hyper: [
+    { type: 'strength', tag: 'A', intent: 'Full-body A' },
+    { type: 'bike', zone: 'Z2', intent: 'Vélo facile' },
+    { type: 'strength', tag: 'B', intent: 'Full-body B' },
+    { type: 'swim', intent: 'Technique + endurance' },
+    { type: 'run', zone: 'Z2', intent: 'Course facile' },
+    { type: 'bike', zone: 'Z2', intent: 'Sortie longue facile', long: true },
+    { type: 'rest', intent: 'Repos / marche' }
   ],
   strength: [
-    [{ kind: 'lift', t: 'upperStrength' }, { kind: 'swim', focus: 'Aérobie + CSS', zone: 'Z2', dur: 35 }], // Lun
-    [{ kind: 'bike', focus: 'Intervalles FTP', zone: 'Z4', dur: 60 }],                                     // Mar
-    [{ kind: 'rest' }],                                                                                     // Mer
-    [{ kind: 'lift', t: 'lowerStrength' }, { kind: 'run', focus: 'Tempo au seuil', zone: 'Z3', dur: 40 }], // Jeu
-    [{ kind: 'rest' }],                                                                                     // Ven
-    [{ kind: 'lift', t: 'fullStrength' }, { kind: 'swim', focus: 'Endurance', zone: 'Z2', dur: 30 }],      // Sam
-    [{ kind: 'brick', focus: 'Sortie longue + transition course', zone: 'Z2', dur: 100 }]                  // Dim
+    { type: 'strength', tag: 'A', intent: 'Force bas du corps' },
+    { type: 'bike', zone: 'Z4', intent: 'Vélo seuil (intervalles)' },
+    { type: 'strength', tag: 'B', intent: 'Force haut du corps' },
+    { type: 'run', zone: 'Z3', intent: 'Course tempo' },
+    { type: 'swim', intent: 'Endurance' },
+    { type: 'bike', zone: 'Z2', intent: 'Sortie longue', long: true },
+    { type: 'rest', intent: 'Repos' }
   ],
   specific: [
-    [{ kind: 'lift', t: 'upperMaint' }, { kind: 'swim', focus: 'CSS + technique', zone: 'Z3', dur: 40 }],  // Lun
-    [{ kind: 'bike', focus: 'Sweet-spot / FTP', zone: 'Z4', dur: 80 }],                                    // Mar
-    [{ kind: 'rest' }],                                                                                     // Mer
-    [{ kind: 'run', focus: 'Intervalles au seuil', zone: 'Z4', dur: 55 }],                                 // Jeu
-    [{ kind: 'lift', t: 'lowerMaint' }, { kind: 'swim', focus: 'Endurance allure course', zone: 'Z2', dur: 35 }], // Ven
-    [{ kind: 'rest' }],                                                                                     // Sam
-    [{ kind: 'brick', focus: 'Brick long : vélo long + course', zone: 'Z2', dur: 120 }]                    // Dim
+    { type: 'swim', intent: 'Seuil nage' },
+    { type: 'bike', zone: 'Z4', intent: 'Vélo intervalles' },
+    { type: 'strength', tag: 'M', intent: 'Maintien lourd' },
+    { type: 'run', zone: 'Z3', intent: 'Course tempo' },
+    { type: 'bike', zone: 'Z2', intent: 'Vélo facile' },
+    { type: 'brick', intent: 'Vélo long + transition course', long: true },
+    { type: 'run', zone: 'Z2', intent: 'Course longue', long: true }
   ],
   peak: [
-    [{ kind: 'lift', t: 'fullLight' }, { kind: 'swim', focus: 'Allure course + aisance', zone: 'Z3', dur: 30 }], // Lun
-    [{ kind: 'bike', focus: 'Efforts allure course', zone: 'Z3', dur: 60 }],                               // Mar
-    [{ kind: 'rest' }],                                                                                     // Mer
-    [{ kind: 'run', focus: 'Allure course + lignes', zone: 'Z3', dur: 40 }, { kind: 'swim', focus: 'Récup active', zone: 'Z2', dur: 25 }], // Jeu
-    [{ kind: 'rest' }],                                                                                     // Ven
-    [{ kind: 'lift', t: 'fullLight' }, { kind: 'swim', focus: 'Aisance', zone: 'Z2', dur: 20 }],           // Sam
-    [{ kind: 'brick', focus: 'Brick modéré (réduit en affûtage)', zone: 'Z2', dur: 90 }]                   // Dim
+    { type: 'swim', intent: 'Allure course' },
+    { type: 'bike', zone: 'Z3', intent: 'Allure course (court)' },
+    { type: 'run', zone: 'Z3', intent: 'Allure course (court)' },
+    { type: 'strength', tag: 'M', intent: 'Entretien léger' },
+    { type: 'rest', intent: 'Repos' },
+    { type: 'brick', intent: 'Brick court allure course', long: false },
+    { type: 'rest', intent: 'Repos' }
+  ],
+  transition: [
+    { type: 'rest', intent: 'Repos' },
+    { type: 'bike', zone: 'Z2', intent: 'Vélo plaisir' },
+    { type: 'strength', tag: 'A', intent: 'Muscu plaisir' },
+    { type: 'rest', intent: 'Repos' },
+    { type: 'run', zone: 'Z2', intent: 'Footing léger' },
+    { type: 'bike', zone: 'Z2', intent: 'Sortie facile' },
+    { type: 'rest', intent: 'Repos' }
+  ],
+  test: [
+    { type: 'strength', tag: 'TEST', intent: 'Tests force + photos' },
+    { type: 'bike', zone: 'TEST', intent: 'Test FTP 20 min' },
+    { type: 'bike', zone: 'Z1', intent: 'Récup active' },
+    { type: 'run', zone: 'TEST', intent: 'Test 5 km chrono' },
+    { type: 'swim', intent: 'Test CSS (400+200)' },
+    { type: 'bike', zone: 'Z2', intent: 'Sortie longue facile', long: true },
+    { type: 'rest', intent: 'Repos + 1re revue' }
   ]
 };
 
-export const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-export const DAY_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-
-export const DISCIPLINE_ICON = { lift: '🏋️', swim: '🏊', bike: '🚴', run: '🏃', brick: '🔁', rest: '😴' };
-export const DISCIPLINE_LABEL = { lift: 'Muscu', swim: 'Natation', bike: 'Vélo', run: 'Course', brick: 'Brick', rest: 'Repos' };
-
-// ----------------------------------------------------------------------------
-// 4) ZONES D'INTENSITÉ — calculées depuis les repères de l'athlète.
-// ----------------------------------------------------------------------------
-export function paceStr(secPerKm) {
-  if (!secPerKm || secPerKm <= 0) return '—';
-  const m = Math.floor(secPerKm / 60);
-  const s = Math.round(secPerKm % 60);
-  return `${m}:${String(s).padStart(2, '0')}/km`;
-}
-
-// Facteur d'intensité (% du seuil) par zone — sert au load et aux prescriptions.
-const ZONE_FACTORS = { Z1: 0.5, Z2: 0.68, Z3: 0.85, Z4: 1.0, Z5: 1.12 };
-export function zoneFactor(zone) { return ZONE_FACTORS[zone] ?? 0.7; }
-
-export function bikeZone(zone, ftp) {
-  const f = { Z2: [0.56, 0.75], Z3: [0.76, 0.90], Z4: [0.91, 1.05], Z5: [1.06, 1.20] }[zone] || [0.56, 0.75];
-  return `${Math.round(ftp * f[0])}–${Math.round(ftp * f[1])} W`;
-}
-export function runZonePace(zone, thr) {
-  // allure plus lente = sec/km plus grand ; on part du seuil.
-  const f = { Z2: [1.25, 1.15], Z3: [1.10, 1.04], Z4: [1.02, 0.98], Z5: [0.97, 0.93] }[zone] || [1.25, 1.15];
-  return `${paceStr(thr * f[0])} → ${paceStr(thr * f[1])}`;
-}
-export function swimZonePace(zone, css) {
-  const f = { Z2: [1.12, 1.06], Z3: [1.05, 1.01], Z4: [1.0, 0.97], Z5: [0.96, 0.93] }[zone] || [1.12, 1.06];
-  return `${paceStr(css * f[0])} → ${paceStr(css * f[1])} (/100m)`;
-}
-export function hrZone(zone, maxHr, restHr) {
-  // Karvonen : %réserve FC. Z2 60-70%, Z3 70-80%, Z4 80-90%, Z5 90-100%.
-  const f = { Z2: [0.60, 0.70], Z3: [0.70, 0.80], Z4: [0.80, 0.90], Z5: [0.90, 1.0] }[zone] || [0.60, 0.70];
-  const r = maxHr - restHr;
-  return `${Math.round(restHr + r * f[0])}–${Math.round(restHr + r * f[1])} bpm`;
-}
+export const READINESS_QUESTIONS = [
+  { key: 'sleep',    label: 'Sommeil', emojis: ['😴 mauvais', '😐 moyen', '🙂 correct', '😃 super'] },
+  { key: 'soreness', label: 'Courbatures', emojis: ['🥵 fortes', '😣 moyennes', '🙂 légères', '💪 aucune'] },
+  { key: 'energy',   label: 'Énergie', emojis: ['🪫 vide', '😐 basse', '🙂 ok', '⚡ pleine'] },
+  { key: 'stress',   label: 'Stress', emojis: ['😫 élevé', '😕 moyen', '🙂 bas', '🧘 zen'] }
+];

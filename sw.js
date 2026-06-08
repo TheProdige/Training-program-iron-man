@@ -1,5 +1,5 @@
-// Service worker — cache offline-first pour que l'app marche sans réseau.
-const CACHE = 'ironforge-v3';
+/* IRONFORGE — service worker : cache app-shell pour le hors-ligne. */
+const CACHE = 'ironforge-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -9,9 +9,10 @@ const ASSETS = [
   './js/store.js',
   './js/data.js',
   './js/engine.js',
-  './js/charts.js',
   './js/views.js',
-  './js/coach.js'
+  './js/charts.js',
+  './js/coach.js',
+  './icons/icon.svg'
 ];
 
 self.addEventListener('install', (e) => {
@@ -20,23 +21,25 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  const { request } = e;
+  if (request.method !== 'GET') return;
+  // Ne jamais mettre en cache les appels à l'API Claude.
+  if (request.url.includes('api.anthropic.com')) return;
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const network = fetch(e.request)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
-          return res;
-        })
-        .catch(() => cached);
+    caches.match(request).then((cached) => {
+      const network = fetch(request).then((resp) => {
+        if (resp && resp.status === 200 && resp.type === 'basic') {
+          const copy = resp.clone();
+          caches.open(CACHE).then((c) => c.put(request, copy));
+        }
+        return resp;
+      }).catch(() => cached);
       return cached || network;
     })
   );
