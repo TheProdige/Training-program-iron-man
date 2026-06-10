@@ -11,6 +11,18 @@ const num = (id) => { const v = parseFloat(document.getElementById(id).value); r
 const val = (id) => document.getElementById(id).value.trim();
 
 // Anneau de score (style Oura/Whoop).
+function greeting(name) {
+  const hr = new Date().getHours();
+  const g = hr < 12 ? 'Bon matin' : hr < 18 ? 'Bon après-midi' : 'Bonsoir';
+  return name ? `${g}, ${name}` : g;
+}
+function dateLabel() {
+  const s = new Date().toLocaleDateString('fr-CA', { weekday: 'long', day: 'numeric', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function optGroup(key, labels, r) {
+  return `<div class="rd-opts" data-key="${key}">${labels.map((l, i) => `<button class="rd-opt${r && r[key] === i ? ' on' : ''}" data-v="${i}">${l}</button>`).join('')}</div>`;
+}
 function ringSVG(score, level) {
   const R = 46, C = 2 * Math.PI * R, pct = Math.max(0, Math.min(100, score || 0));
   const off = (C * (1 - pct / 100)).toFixed(1);
@@ -120,6 +132,13 @@ export function renderToday(el) {
 
   el.innerHTML = h`
   <section class="view">
+    <div class="home-head">
+      <div>
+        <div class="hello">${esc(greeting(st.profile.name))}</div>
+        <div class="muted small">${esc(dateLabel())}</div>
+      </div>
+    </div>
+
     <div class="card briefing">
       <div class="muted small">☀️ Readiness du jour</div>
       <div class="brief-top">
@@ -160,6 +179,13 @@ export function renderToday(el) {
       </div>
     </div>
 
+    <div class="card">
+      <h3>🌙 Bilan du soir ${r && r.sessionDone != null ? '✅' : ''}</h3>
+      <div class="rd-q"><span>Séance du jour</span>${optGroup('sessionDone', ['⏭️ sautée', '🟡 partielle', '✅ faite'], r)}</div>
+      <div class="rd-q"><span>Nutrition du jour</span>${optGroup('nutritionDay', ['😬 à côté', '🙂 correct', '🎯 au top'], r)}</div>
+      <label>Hydratation (L) <input id="ev-water" type="number" inputmode="decimal" step="0.25" value="${r && r.hydration != null ? r.hydration : ''}" placeholder="ex: 2.5"></label>
+    </div>
+
     <div class="row">
       <a class="btn primary" href="#log">✍️ Logger cette séance</a>
       <a class="btn" href="#nutrition">🍽️ Nutrition</a>
@@ -181,6 +207,8 @@ export function renderToday(el) {
   if (sh) sh.onchange = () => upd({ sleepHours: sh.value === '' ? null : parseFloat(sh.value) });
   const rhr = document.getElementById('rd-rhr');
   if (rhr) rhr.onchange = () => upd({ rhr: rhr.value === '' ? null : parseInt(rhr.value) });
+  const water = document.getElementById('ev-water');
+  if (water) water.onchange = () => upd({ hydration: water.value === '' ? null : parseFloat(water.value) });
 }
 
 /* =================== PLAN =================== */

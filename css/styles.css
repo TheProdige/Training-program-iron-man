@@ -99,6 +99,10 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
   padding:9px 10px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s}
 .tabs button.on{background:var(--surface-3);color:var(--txt);box-shadow:var(--shadow-sm)}
 
+/* ---------- home header ---------- */
+.home-head{display:flex;justify-content:space-between;align-items:flex-end;margin:2px 2px 12px}
+.hello{font-size:23px;font-weight:800;letter-spacing:-.02em}
+
 /* ---------- briefing + ring ---------- */
 .briefing{position:relative;overflow:hidden}
 .brief-top{display:flex;align-items:center;gap:16px;margin:8px 0 4px}
