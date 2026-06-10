@@ -1,148 +1,98 @@
-// coach.js — Coach IA conversationnel propulsé par l'API Claude.
-// Appel direct depuis le navigateur (PWA statique, pas de backend).
-// La clé API est saisie par l'utilisateur et stockée UNIQUEMENT en local,
-// dans une clé localStorage séparée de l'export de données (jamais commitée,
-// jamais envoyée ailleurs qu'à api.anthropic.com).
-
+/* IRONFORGE — coach IA (Claude). Optionnel. La clé API reste 100% locale,
+   envoyée uniquement à api.anthropic.com. Sans clé, l'app reste pleinement fonctionnelle. */
 import { getState } from './store.js';
 import {
-  buildMacro, currentWeekIndex, loadingContext, dailyPlan, computeACWR,
-  todayISO, daysBetween
+  currentWeek, phaseInfo, todayPlan, acwr, acwrFlag,
+  nutritionTarget, limiterAnalysis, detailToText, insights
 } from './engine.js';
-import { MAIN_LIFTS, DISCIPLINE_LABEL, paceStr } from './data.js';
 
-const KEY_STORE = 'ironforge.apikey';
-const MODEL = 'claude-opus-4-8';
-const ENDPOINT = 'https://api.anthropic.com/v1/messages';
+const SYSTEM = `Tu es IRONFORGE, le coach personnel d'endurance et de force de l'utilisateur.
+Pas un coach générique : SON coach, qui connaît ses vraies données et le pousse au maximum sans le casser.
 
-export function getApiKey() { return localStorage.getItem(KEY_STORE) || ''; }
-export function setApiKey(k) {
-  if (k) localStorage.setItem(KEY_STORE, k.trim());
-  else localStorage.removeItem(KEY_STORE);
-}
-export function hasApiKey() { return !!getApiKey(); }
+MISSION : le préparer à FINIR un IRONMAN complet d'ici ~1 an, tout en le rendant musclé et athlétique. Entraînement à la maison. La boxe a été abandonnée : focus Ironman + musculation.
 
-// ----------------------------------------------------------- Contexte athlète
-// Résumé compact injecté dans le system prompt pour que le coach connaisse
-// les données réelles de l'utilisateur.
-export function athleteContext() {
-  const st = getState();
-  const p = st.profile, m = p.metrics;
-  const macro = buildMacro(st);
-  const wk = currentWeekIndex(st);
-  const ctx = loadingContext(macro, wk);
-  const dp = dailyPlan(st, todayISO(), 'good');
-  const acwr = computeACWR(st);
+STYLE : direct, motivant, honnête, tutoiement, français, concret et chiffré. Tu expliques toujours le POURQUOI, brièvement. Tu n'inventes JAMAIS de données ; si une info manque tu le dis.
 
-  const todaySess = dp.sessions.map((s) => {
-    if (s.kind === 'rest') return 'Repos';
-    if (s.kind === 'lift') return `Muscu: ${s.title}`;
-    return `${DISCIPLINE_LABEL[s.kind]} ${s.durMin}min (${s.zone}) — ${s.title}`;
-  }).join(' + ');
+PRINCIPES : périodisation muscle d'abord puis endurance ; polarisation 80/20 ; gestion de l'interférence (protéine haute, jambes lourdes loin de la course de qualité) ; surcharge progressive bornée par l'ACWR ; autorégulation (on coupe l'intensité avant le volume, le volume avant le sommeil).
 
-  const lifts = MAIN_LIFTS.map((n) => {
-    const h = (st.history[n] || []).slice(-1)[0];
-    return `${n}: ${h ? h.e1rm + 'kg (e1RM)' : (p.lifts1rm[n] || '?') + 'kg (déclaré)'}`;
-  }).join(', ');
+BOUCLE HEBDO (PRIORITAIRE) : tu analyses D'ABORD les résultats, PUIS tu proposes des ajustements (garder/changer/enlever/ajouter) avec le pourquoi chiffré. Tu décides AVEC l'utilisateur : tu proposes, il tranche.
 
-  const recent = [...st.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 8)
-    .map((s) => `${s.date} ${DISCIPLINE_LABEL[s.kind] || s.kind}${s.durationMin ? ' ' + s.durationMin + 'min' : ''} RPE${s.rpe || '?'} charge${s.load}`)
-    .join(' | ') || 'aucune séance loggée';
+GARDE-FOUS : pas médecin (douleur aiguë/thoracique/articulaire suspecte -> repos + avis médical) ; jamais de déficit calorique agressif en gros bloc d'endurance ; tu ralentis sans culpabiliser quand la readiness est mauvaise.
 
-  return `PROFIL ATHLÈTE
-- Poids ${p.bodyweightKg}kg, ${p.age} ans, objectif ${p.raceType === 'full' ? 'Ironman complet' : 'Ironman 70.3'}${p.raceDate ? ` le ${p.raceDate}` : ''}, ${p.daysPerWeek} j/sem.
-- Repères: FTP ${m.ftpWatts}W, CSS ${paceStr(m.swimCss)}/100m, allure seuil ${paceStr(m.runThreshold)}, FCmax ${m.maxHr}, FCrepos ${m.restHr}.
-- 1RM: ${lifts}
+Réponds court, actionnable, calibré sur les données ci-dessous. Termine par UNE action concrète quand c'est pertinent.`;
 
-PROGRAMME (macrocycle ${macro.length} phases)
-- Phase actuelle: ${ctx.phase.name} (${ctx.phase.emphasis}), semaine ${ctx.wInPhase + 1}/${ctx.phase.weeks}, semaine ${wk + 1} du macro.
-- ${ctx.isDeload ? 'SEMAINE DE DELOAD.' : ctx.taper ? 'AFFÛTAGE.' : 'Semaine de charge.'} ${ctx.weeksToRace >= 0 ? ctx.weeksToRace + ' semaines avant la course.' : ''}
-- Au programme aujourd'hui: ${todaySess || 'repos'}
-
-CHARGE & FATIGUE
-- ACWR ${acwr.ratio || 'n/a'} (aiguë ${acwr.acute} / chronique ${acwr.chronic}) — ${acwr.advice}
-
-SÉANCES RÉCENTES: ${recent}`;
+export function buildContext() {
+  const s = getState();
+  const week = currentWeek(s);
+  const phase = phaseInfo(week.phaseId);
+  const plan = todayPlan(s);
+  const a = acwr(s.logs.sessions);
+  const nut = nutritionTarget(s);
+  const lim = limiterAnalysis(s);
+  const recent = s.logs.sessions.slice(-10).map((x) => `${x.date} ${x.type} rpe${x.rpe || '?'} ${x.durationMin || ''}min`).join('; ');
+  const body = s.logs.body.slice(-1)[0];
+  return [
+    `# Profil`, `${s.profile.age} ans, ${s.profile.weightLb} lb (cible ${s.profile.goalWeightLb}), ${s.profile.heightCm} cm, emphasis=${s.profile.emphasis}.`,
+    `# Repères`, `FTP=${s.benchmarks.ftp ?? '?'}W, 5k=${s.benchmarks.run5kSec ?? '?'}s, CSS=${s.benchmarks.cssSec100 ?? '?'}s/100m, bench5RM=${s.benchmarks.bench5rm ?? '?'}, pompes=${s.benchmarks.maxPushups ?? '?'}, tractions=${s.benchmarks.maxPullups ?? '?'}.`,
+    `# Phase`, `${phase.name} (sem ${week.index + 1}${week.deload ? ', DELOAD' : ''}). ${phase.focus}.`,
+    `# Readiness`, `Score ${plan.readinessScore ?? 'n/a'}/100 → directive « ${plan.directive.label} » (×${plan.mult}). ${plan.directive.advice}`,
+    `# Alertes`, (insights(s).map((i) => i.msg).join(' | ') || 'aucune'),
+    `# Séance du jour`, `${detailToText(plan.detail)}.`,
+    `# Charge/ACWR`, `ACWR=${a.ratio} (${acwrFlag(a.ratio).msg}).`,
+    `# Nutrition cible`, nut ? `${nut.kcal} kcal, P${nut.proteinG}/G${nut.carbsG}/L${nut.fatG}. ${nut.note}` : 'non calculée',
+    `# Corps`, body ? `${body.date}: ${body.weightLb} lb` : 'aucune mesure',
+    `# Maillon faible`, lim.map((l) => `${l.name}:${l.status}(${l.detail})`).join(' | ') || 'à mesurer',
+    `# Derniers logs`, recent || 'aucun'
+  ].join('\n');
 }
 
-function systemPrompt() {
-  return `Tu es le coach personnel d'IRONFORGE, expert en entraînement hybride (triathlon Ironman + bodybuilding) et en entraînement concurrent. Tu parles à ton athlète en français, de façon directe, motivante et concrète.
+export async function askCoach(messages, onDelta) {
+  const s = getState();
+  const key = s.settings.coachApiKey;
+  if (!key) throw new Error('NO_KEY');
+  const sys = SYSTEM + '\n\n## Données réelles de l\'utilisateur\n' + buildContext();
 
-Rôle:
-- Réponds à ses questions, ajuste ses séances en fonction de son ressenti, explique le "pourquoi".
-- Gère l'effet d'interférence muscu/endurance, la périodisation, la surcharge progressive, la récupération et la nutrition de base.
-- Donne des conseils CONCRETS et chiffrés (charges, allures, watts, durées, séries/reps) en t'appuyant sur les données réelles ci-dessous.
-- Reste prudent: pars conservateur, priorise la santé, repère les signaux d'alerte (douleur articulaire, fatigue persistante, sommeil/HRV dégradés) et recommande repos ou avis médical si besoin.
-- L'app ajuste déjà automatiquement le plan (surcharge, ACWR, deload, auto-régulation selon le ressenti du jour). Tu complètes par du conseil et des explications; tu ne prétends pas modifier la base de données toi-même — si une vraie modif du plan est nécessaire, dis-lui quoi changer dans l'app (Profil, ressenti du jour, etc.).
-- Sois concis par défaut (quelques phrases), développe quand la question le mérite. Pas de baratin.
-- Tu n'es pas médecin: pour blessure/santé, recommande un professionnel.
-
-Voici les données actuelles de ton athlète (mises à jour à chaque message):
-
-${athleteContext()}`;
-}
-
-// ----------------------------------------------------------- Appel streaming
-// messages: [{role:'user'|'assistant', content:'...'}]
-// onDelta(textChunk), onDone(fullText), onError(err)
-export async function streamReply(messages, { onDelta, onDone, onError }) {
-  const apiKey = getApiKey();
-  if (!apiKey) { onError(new Error('Aucune clé API configurée.')); return; }
-
-  let full = '';
-  try {
-    const resp = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 4000,
-        stream: true,
-        thinking: { type: 'adaptive' },
-        output_config: { effort: 'medium' },
-        system: systemPrompt(),
-        messages
-      })
-    });
-
-    if (!resp.ok || !resp.body) {
-      let msg = `Erreur API (${resp.status})`;
-      try { const j = await resp.json(); msg = j?.error?.message || msg; } catch {}
-      if (resp.status === 401) msg = 'Clé API invalide. Vérifie-la dans les réglages du coach.';
-      throw new Error(msg);
-    }
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split('\n\n');
-      buffer = events.pop() || '';
-      for (const block of events) {
-        const line = block.split('\n').find((l) => l.startsWith('data:'));
-        if (!line) continue;
-        const data = line.slice(5).trim();
-        if (!data || data === '[DONE]') continue;
-        let evt;
-        try { evt = JSON.parse(data); } catch { continue; }
-        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
-          full += evt.delta.text;
-          onDelta(evt.delta.text);
-        } else if (evt.type === 'error') {
-          throw new Error(evt.error?.message || 'Erreur de streaming');
-        }
-      }
-    }
-    onDone(full);
-  } catch (e) {
-    onError(e);
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: s.settings.coachModel || 'claude-opus-4-8',
+      max_tokens: 1024,
+      system: sys,
+      stream: true,
+      messages
+    })
+  });
+  if (!resp.ok || !resp.body) {
+    const t = await resp.text().catch(() => '');
+    throw new Error('API ' + resp.status + ' ' + t.slice(0, 200));
   }
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', full = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      try {
+        const ev = JSON.parse(data);
+        if (ev.type === 'content_block_delta' && ev.delta?.text) {
+          full += ev.delta.text;
+          onDelta && onDelta(ev.delta.text, full);
+        }
+      } catch { /* ignore keep-alive */ }
+    }
+  }
+  return full;
 }
