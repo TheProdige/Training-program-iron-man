@@ -10,6 +10,18 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const num = (id) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
 const val = (id) => document.getElementById(id).value.trim();
 
+// Anneau de score (style Oura/Whoop).
+function ringSVG(score, level) {
+  const R = 46, C = 2 * Math.PI * R, pct = Math.max(0, Math.min(100, score || 0));
+  const off = (C * (1 - pct / 100)).toFixed(1);
+  return `<svg class="ring ring-${level}" viewBox="0 0 120 120">
+    <circle class="ring-bg" cx="60" cy="60" r="${R}"></circle>
+    <circle class="ring-fg" cx="60" cy="60" r="${R}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off}" transform="rotate(-90 60 60)"></circle>
+    <text class="ring-num" x="60" y="60" dominant-baseline="middle">${score != null ? score : '—'}</text>
+    <text class="ring-sub" x="60" y="84" dominant-baseline="middle">/100</text>
+  </svg>`;
+}
+
 // Rendu d'une séance détaillée (blocs échauffement / corps / retour au calme + notes).
 function sessionBlocksHTML(detail) {
   if (detail.lines) return `<ul class="lines">${detail.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`;
@@ -108,10 +120,10 @@ export function renderToday(el) {
 
   el.innerHTML = h`
   <section class="view">
-    <div class="card briefing brief-${dir.level}">
-      <div class="muted small">☀️ Briefing du jour</div>
+    <div class="card briefing">
+      <div class="muted small">☀️ Readiness du jour</div>
       <div class="brief-top">
-        <div class="score">${score != null ? score : '—'}<span class="unit">/100</span></div>
+        ${ringSVG(score, dir.level)}
         <div class="brief-dir"><div class="dir-label">${dir.emoji} ${dir.label}</div><div class="small muted">${esc(dir.advice)}</div></div>
       </div>
       ${ins.length ? `<div class="insights">${ins.map((i) => `<div class="ins ins-${i.level}">${i.icon} ${esc(i.msg)}</div>`).join('')}</div>` : ''}
@@ -303,7 +315,7 @@ export function renderReview(el) {
     </div>
     <div class="card">
       <h3>Maillon faible</h3>
-      ${rev.limiters.length ? rev.limiters.map((l) => `<div class="lim ${l.status}"><span>${esc(l.name)}</span><span class="small">${esc(l.detail)} · score ${l.score}</span></div>`).join('') : '<p class="muted">Fais tes tests (Semaine 0) pour activer l\'analyse.</p>'}
+      ${rev.limiters.length ? rev.limiters.map((l) => limBar(l)).join('') : '<p class="muted">Fais tes tests (Semaine 0) pour activer l\'analyse.</p>'}
     </div>
     <div class="card">
       <h3>Propositions pour la semaine prochaine</h3>
@@ -335,25 +347,54 @@ export function renderReview(el) {
 /* =================== PROGRÈS =================== */
 export function renderProgress(el) {
   const st = S.getState();
+  const iso = S.todayISO();
+  const lims = E.limiterAnalysis(st);
+  // readiness 14 derniers jours
+  const rdScores = [];
+  for (let i = 13; i >= 0; i--) { const d = E.addDays(iso, -i); const r = st.logs.readiness.find((x) => x.date === d); const sc = E.readinessScore(st, r); if (sc != null) rdScores.push({ x: 13 - i, y: sc }); }
+  const a = E.acwr(st.logs.sessions, iso);
+
   el.innerHTML = h`
   <section class="view">
-    <h1>📈 Progrès</h1>
-    <div class="card"><h3>Charge hebdomadaire (sRPE)</h3><canvas id="c-load"></canvas></div>
-    <div class="card"><h3>Poids corporel (lb)</h3><canvas id="c-weight"></canvas></div>
-    <div class="card"><h3>Maillon faible</h3>
-      ${E.limiterAnalysis(st).map((l) => `<div class="lim ${l.status}"><span>${esc(l.name)}</span><span class="small">${esc(l.detail)}</span></div>`).join('') || '<p class="muted">À activer après tes tests.</p>'}
+    <h1>📈 Analyses</h1>
+
+    <div class="grid2">
+      <div class="card stat"><div class="muted small">ACWR</div><div class="big ${E.acwrFlag(a.ratio).level}">${a.ratio || '—'}</div><div class="small muted">${a.acuteAvg}/${a.chronicAvg} charge</div></div>
+      <div class="card stat"><div class="muted small">Readiness moy. 7j</div><div class="big">${avgReadiness7(st, iso) ?? '—'}</div><div class="small muted">/100</div></div>
     </div>
+
+    <div class="card"><h3>🎯 Maillon faible — quoi prioriser</h3>
+      ${lims.length ? lims.map((l) => limBar(l)).join('') : '<p class="muted small">Fais tes tests (Semaine 0) pour activer l\'analyse.</p>'}
+    </div>
+
+    <div class="card"><h3>Readiness (14 jours)</h3><canvas id="c-rd"></canvas></div>
+    <div class="card"><h3>Charge hebdomadaire (sRPE)</h3><canvas id="c-load"></canvas><div class="chart-cap"><span>8 semaines</span><span>maintenant →</span></div></div>
+    <div class="card"><h3>Poids corporel (lb)</h3><canvas id="c-weight"></canvas></div>
   </section>`;
-  // charge hebdo (8 dernières semaines)
+
+  lineChart(document.getElementById('c-rd'), rdScores, { color: '#2fd39a', minY: 0, maxY: 100 });
   const bars = [];
+  const days = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
   for (let w = 7; w >= 0; w--) {
     let sum = 0;
-    for (let d = 0; d < 7; d++) { const iso = E.addDays(S.todayISO(), -(w * 7 + d)); sum += E.dailyLoad(st.logs.sessions, iso); }
-    bars.push({ v: sum });
+    for (let d = 0; d < 7; d++) sum += E.dailyLoad(st.logs.sessions, E.addDays(iso, -(w * 7 + d)));
+    bars.push({ v: sum, label: w === 0 ? 'now' : '-' + w + 'w' });
   }
   barChart(document.getElementById('c-load'), bars);
-  const wpts = st.logs.body.slice().sort((a,b)=>a.date.localeCompare(b.date)).map((b, i) => ({ x: i, y: b.weightLb }));
-  lineChart(document.getElementById('c-weight'), wpts, { color: '#3da8ff' });
+  const wpts = st.logs.body.slice().sort((x, y) => x.date.localeCompare(y.date)).map((b, i) => ({ x: i, y: b.weightLb }));
+  lineChart(document.getElementById('c-weight'), wpts, { color: '#4aa8ff' });
+}
+function limBar(l) {
+  const pct = Math.max(4, Math.min(100, Math.round(l.score * 100)));
+  return `<div class="lim ${l.status}">
+    <div class="lim-head"><b>${esc(l.name)}</b><span class="small">${esc(l.detail)}</span></div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+  </div>`;
+}
+function avgReadiness7(st, iso) {
+  const v = [];
+  for (let i = 0; i < 7; i++) { const r = st.logs.readiness.find((x) => x.date === E.addDays(iso, -i)); const s = E.readinessScore(st, r); if (s != null) v.push(s); }
+  return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null;
 }
 
 /* =================== NUTRITION =================== */
