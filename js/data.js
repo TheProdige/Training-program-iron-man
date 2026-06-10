@@ -120,9 +120,12 @@ export const WEEK_TEMPLATES = {
   ]
 };
 
+// Check matin : chaque réponse vaut 0..3 (3 = meilleur). Score de readiness calculé par le moteur.
 export const READINESS_QUESTIONS = [
-  { key: 'sleep',    label: 'Sommeil', emojis: ['😴 mauvais', '😐 moyen', '🙂 correct', '😃 super'] },
-  { key: 'soreness', label: 'Courbatures', emojis: ['🥵 fortes', '😣 moyennes', '🙂 légères', '💪 aucune'] },
-  { key: 'energy',   label: 'Énergie', emojis: ['🪫 vide', '😐 basse', '🙂 ok', '⚡ pleine'] },
-  { key: 'stress',   label: 'Stress', emojis: ['😫 élevé', '😕 moyen', '🙂 bas', '🧘 zen'] }
+  { key: 'sleepQual',  label: 'Qualité sommeil', emojis: ['😴 mauvais', '😐 moyen', '🙂 correct', '😃 super'] },
+  { key: 'soreness',   label: 'Courbatures', emojis: ['🥵 fortes', '😣 moyennes', '🙂 légères', '💪 aucune'] },
+  { key: 'energy',     label: 'Énergie', emojis: ['🪫 vide', '😐 basse', '🙂 ok', '⚡ pleine'] },
+  { key: 'mood',       label: 'Humeur', emojis: ['😞 basse', '😐 mitigée', '🙂 bonne', '😄 top'] },
+  { key: 'stress',     label: 'Stress', emojis: ['😫 élevé', '😕 moyen', '🙂 bas', '🧘 zen'] },
+  { key: 'motivation', label: 'Motivation', emojis: ['🥱 nulle', '😐 molle', '🙂 ok', '🔥 à fond'] }
 ];

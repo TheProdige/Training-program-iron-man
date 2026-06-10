@@ -101,17 +101,36 @@ export function renderToday(el) {
   const nut = E.nutritionTarget(st, iso);
   const r = st.logs.readiness.find((x) => x.date === iso);
 
+  const score = plan.readinessScore;
+  const dir = plan.directive;
+  const ins = E.insights(st, iso);
+  const checked = READINESS_QUESTIONS.some((q) => r && r[q.key] != null) || (r && r.sleepHours != null);
+
   el.innerHTML = h`
   <section class="view">
+    <div class="card briefing brief-${dir.level}">
+      <div class="muted small">☀️ Briefing du jour</div>
+      <div class="brief-top">
+        <div class="score">${score != null ? score : '—'}<span class="unit">/100</span></div>
+        <div class="brief-dir"><div class="dir-label">${dir.emoji} ${dir.label}</div><div class="small muted">${esc(dir.advice)}</div></div>
+      </div>
+      ${ins.length ? `<div class="insights">${ins.map((i) => `<div class="ins ins-${i.level}">${i.icon} ${esc(i.msg)}</div>`).join('')}</div>` : ''}
+      ${score == null ? '<div class="small muted">Fais ton check du matin ci-dessous pour calibrer ta journée. 👇</div>' : ''}
+    </div>
+
     <div class="card hero">
       <div class="muted">${plan.phase.emoji} ${plan.phase.name} · Semaine ${plan.week.index + 1}${plan.week.deload ? ' · 🔻 DELOAD' : ''}</div>
       <h1>${esc(plan.detail.title)}</h1>
-      <div class="muted small">${plan.detail.focus ? esc(plan.detail.focus) + ' · ' : ''}${plan.detail.durationMin ? '~' + plan.detail.durationMin + ' min · ' : ''}intensité du jour ×${plan.mult}</div>
+      <div class="muted small">${plan.detail.focus ? esc(plan.detail.focus) + ' · ' : ''}${plan.detail.durationMin ? '~' + plan.detail.durationMin + ' min · ' : ''}intensité ajustée ×${plan.mult}</div>
       ${sessionBlocksHTML(plan.detail)}
     </div>
 
     <div class="card">
-      <h3>Comment tu te sens ? ${r ? '✅' : ''}</h3>
+      <h3>☀️ Check du matin ${checked ? '✅' : ''}</h3>
+      <div class="row">
+        <label>Heures de sommeil <input id="rd-sleeph" type="number" inputmode="decimal" step="0.5" value="${r && r.sleepHours != null ? r.sleepHours : ''}" placeholder="${st.profile.sleepNeed || 8}"></label>
+        <label>FC repos (option) <input id="rd-rhr" type="number" inputmode="numeric" value="${r && r.rhr != null ? r.rhr : ''}" placeholder="bpm"></label>
+      </div>
       <div id="readiness">${READINESS_QUESTIONS.map((q) => h`
         <div class="rd-q"><span>${q.label}</span>
           <div class="rd-opts" data-key="${q.key}">
@@ -135,18 +154,21 @@ export function renderToday(el) {
     </div>
   </section>`;
 
-  // readiness wiring
+  const upd = (patch) => {
+    const entry = st.logs.readiness.find((x) => x.date === iso) || { date: iso };
+    Object.assign(entry, patch);
+    S.setReadiness(entry);
+    renderToday(el);
+  };
   el.querySelectorAll('.rd-opts').forEach((group) => {
     group.querySelectorAll('.rd-opt').forEach((btn) => {
-      btn.onclick = () => {
-        const key = group.dataset.key, v = +btn.dataset.v;
-        const entry = st.logs.readiness.find((x) => x.date === iso) || { date: iso };
-        entry[key] = v;
-        S.setReadiness(entry);
-        renderToday(el);
-      };
+      btn.onclick = () => upd({ [group.dataset.key]: +btn.dataset.v });
     });
   });
+  const sh = document.getElementById('rd-sleeph');
+  if (sh) sh.onchange = () => upd({ sleepHours: sh.value === '' ? null : parseFloat(sh.value) });
+  const rhr = document.getElementById('rd-rhr');
+  if (rhr) rhr.onchange = () => upd({ rhr: rhr.value === '' ? null : parseInt(rhr.value) });
 }
 
 /* =================== PLAN =================== */

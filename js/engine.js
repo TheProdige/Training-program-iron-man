@@ -121,14 +121,66 @@ export function acwrFlag(ratio) {
   return { level: 'ok', msg: '🟢 Charge bien équilibrée.' };
 }
 
-/* ============ Autorégulation (readiness -> multiplicateur) ============ */
-export function readinessMultiplier(r) {
+/* ============ Autorégulation : score de readiness + directive ============ */
+// Fusionne bien-être + sommeil + charge + FC repos en un score 0-100.
+export function readinessScore(state, r) {
+  if (!r) return null;
+  const need = state.profile.sleepNeed || 8;
+  const wkeys = ['sleepQual', 'soreness', 'energy', 'mood', 'stress', 'motivation'];
+  const present = wkeys.filter((k) => r[k] != null);
+  const wellness = present.length ? present.reduce((s, k) => s + r[k], 0) / (present.length * 3) : 0.66;
+  const sh = r.sleepHours != null ? Math.min(1, r.sleepHours / need) : 0.8;
+  const a = acwr(state.logs.sessions, r.date);
+  let load = 1;
+  if (a.ratio) { if (a.ratio > 1.5) load = 0.5; else if (a.ratio > 1.3) load = 0.75; else if (a.ratio < 0.8) load = 0.9; }
+  let rhrComp = null;
+  const base = state.benchmarks.restingHr;
+  if (r.rhr != null && base) { const d = r.rhr - base; rhrComp = d <= 0 ? 1 : d < 5 ? 0.85 : d < 10 ? 0.65 : 0.45; }
+  const wW = 0.5, wS = 0.25, wL = 0.15, wR = 0.10;
+  let score;
+  if (rhrComp == null) { const tot = wW + wS + wL; score = (wW * wellness + wS * sh + wL * load) / tot; }
+  else score = wW * wellness + wS * sh + wL * load + wR * rhrComp;
+  return Math.round(Math.max(0, Math.min(1, score)) * 100);
+}
+
+export function directiveFor(score, deload) {
+  let d;
+  if (score == null) d = { label: 'Vas-y normal', emoji: '🟡', mult: 1, level: 'ok', advice: 'Pas de check ce matin — séance comme prévu.' };
+  else if (score >= 80) d = { label: 'Pousse', emoji: '🟢', mult: 1.05, level: 'push', advice: 'Tu es frais : ajoute une série ou allonge un peu la sortie longue.' };
+  else if (score >= 65) d = { label: 'Vas-y normal', emoji: '🟡', mult: 1.0, level: 'ok', advice: 'Séance comme prévu, exécution propre et appliquée.' };
+  else if (score >= 50) d = { label: 'Allège', emoji: '🟠', mult: 0.85, level: 'ease', advice: 'Baisse le volume/intensité ~20 %. On consolide aujourd\'hui.' };
+  else d = { label: 'Récupère', emoji: '🔴', mult: 0.7, level: 'recover', advice: 'Récup active ou très facile. Le repos fait partie de l\'entraînement.' };
+  if (deload) { if (d.mult > 1) { d.mult = 1; d.label = 'Vas-y normal'; d.emoji = '🟡'; } d.mult = Math.min(d.mult, 0.85); }
+  return d;
+}
+
+export function readinessMultiplier(r, state) {
+  if (state) { const sc = readinessScore(state, r); if (sc != null) return directiveFor(sc, false).mult; }
   if (!r) return 1;
-  // moyenne des 4 réponses (0..3) -> 0..1
-  const vals = ['sleep', 'soreness', 'energy', 'stress'].map((k) => (r[k] ?? 2));
-  const avg = vals.reduce((a, b) => a + b, 0) / (vals.length * 3); // 0..1
-  // mappe sur 0.65 .. 1.05
+  const vals = ['sleepQual', 'sleep', 'soreness', 'energy', 'stress'].map((k) => r[k]).filter((x) => x != null);
+  if (!vals.length) return 1;
+  const avg = vals.reduce((a, b) => a + b, 0) / (vals.length * 3);
   return round2(0.65 + avg * 0.4);
+}
+
+/* Alertes croisées proactives. */
+function lastN(arr, iso, n) { const from = addDays(iso, -(n - 1)); return arr.filter((x) => x.date >= from && x.date <= iso); }
+export function insights(state, iso = todayISO()) {
+  const out = [];
+  const need = state.profile.sleepNeed || 8;
+  const sl = lastN(state.logs.readiness, iso, 7).map((r) => r.sleepHours).filter((x) => x != null);
+  if (sl.length >= 3) { const avg = sl.reduce((a, b) => a + b, 0) / sl.length; if (avg < need - 0.5) out.push({ level: 'warn', icon: '😴', msg: `Dette de sommeil : ${avg.toFixed(1)} h/nuit en moyenne (besoin ${need} h). Priorise le coucher.` }); }
+  const a = acwr(state.logs.sessions, iso);
+  if (a.ratio > 1.4) out.push({ level: 'high', icon: '⚠️', msg: `Charge en hausse rapide (ACWR ${a.ratio}) : risque de blessure, on consolide.` });
+  else if (a.ratio && a.ratio < 0.9) out.push({ level: 'info', icon: '🔵', msg: `Charge basse (ACWR ${a.ratio}) — tu as de la marge pour pousser un peu.` });
+  const nut = lastN(state.logs.nutrition, iso, 3); const t = nutritionTarget(state, iso);
+  if (nut.length >= 2 && t) { const avgP = nut.reduce((s, n) => s + (n.protein || 0), 0) / nut.length; if (avgP < t.proteinG * 0.8) out.push({ level: 'warn', icon: '🥩', msg: `Protéine basse (~${Math.round(avgP)} g/j vs ${t.proteinG} cible) : tu freines ta prise de muscle.` }); }
+  const scores = lastN(state.logs.readiness, iso, 3).map((r) => readinessScore(state, r)).filter((x) => x != null);
+  if (scores.length >= 3 && scores.every((s) => s < 55)) out.push({ level: 'high', icon: '🛑', msg: '3 jours de readiness basse : prends une vraie journée de récup, ce n\'est pas de la paresse.' });
+  let allTrained = true;
+  for (let i = 0; i < 7; i++) if (dailyLoad(state.logs.sessions, addDays(iso, -i)) === 0) allTrained = false;
+  if (allTrained) out.push({ level: 'warn', icon: '🔁', msg: '7 jours d\'affilée sans repos complet : insère une journée off pour surcompenser.' });
+  return out;
 }
 
 /* ============ Séance du jour ============ */
@@ -140,10 +192,12 @@ export function todayPlan(state, iso = todayISO()) {
   const dow = (new Date(iso + 'T00:00:00').getDay() + 6) % 7; // 0=lundi
   const slot = tpl[dow];
   const readiness = state.logs.readiness.find((r) => r.date === iso);
-  const mult = week.deload ? Math.min(readinessMultiplier(readiness), 0.8) : readinessMultiplier(readiness);
+  const score = readinessScore(state, readiness);
+  const dir = directiveFor(score, week.deload);
+  const mult = dir.mult;
 
   const detail = buildSessionDetail(state, slot, { mult, deload: week.deload });
-  return { week, phase, slot, detail, mult, deload: week.deload };
+  return { week, phase, slot, detail, mult, deload: week.deload, readinessScore: score, directive: dir };
 }
 
 /* ---- paramètres de séance par phase ---- */

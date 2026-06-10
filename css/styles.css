@@ -20,6 +20,17 @@ h3{margin:.2em 0 .6em;font-size:16px}
 
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin:10px 0}
 .card.hero{background:linear-gradient(160deg,#1a2238,#121829)}
+.briefing{border-left:4px solid var(--muted)}
+.brief-push{border-left-color:var(--ok)} .brief-ok{border-left-color:var(--accent2)}
+.brief-ease{border-left-color:var(--warn)} .brief-recover{border-left-color:var(--danger)}
+.brief-top{display:flex;align-items:center;gap:14px;margin:6px 0}
+.score{font-size:40px;font-weight:800;line-height:1}
+.brief-push .score{color:var(--ok)} .brief-ok .score{color:var(--accent2)}
+.brief-ease .score{color:var(--warn)} .brief-recover .score{color:var(--danger)}
+.brief-dir{flex:1}.dir-label{font-weight:700;font-size:17px}
+.insights{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.ins{font-size:13px;padding:7px 10px;border-radius:9px;background:var(--bg2);border:1px solid var(--line)}
+.ins-high{border-color:var(--danger)} .ins-warn{border-color:var(--warn)} .ins-info{border-color:var(--accent2)}
 .card.warn{border-color:var(--warn);color:#ffe1ad;background:#2a2113}
 .lines{margin:.3em 0;padding-left:1.1em} .lines li{margin:.25em 0}
 .sblock{margin-top:10px}
