@@ -29,7 +29,7 @@ export function lineChart(canvas, points, opts = {}) {
   if (minY === maxY) { minY -= 1; maxY += 1; }
   const sx = (x) => padX + (maxX === minX ? .5 : (x - minX) / (maxX - minX)) * (W - 2 * padX);
   const sy = (y) => H - padB - (y - minY) / (maxY - minY) * (H - padT - padB);
-  const color = opts.color || '#ff6a3d';
+  const color = opts.color || '#ff5a2c';
 
   // grille horizontale
   ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = 1;
