@@ -16,7 +16,11 @@ function emptyState() {
       name: '', age: 19, sex: 'H', heightCm: 175,
       weightLb: 140, goalWeightLb: 160, sleepNeed: 8,
       emphasis: 'balanced',                 // balanced | muscle | ironman
-      startDate: todayISO(), raceDate: null, // raceDate null => 48 semaines
+      // On démarre la Semaine 0 (tests) un lundi : la périodisation est Mon→Dim,
+      // et caler le départ sur un lundi garantit que la semaine de tests est vécue
+      // en entier (sinon, en s'inscrivant en milieu de semaine, les tests de base
+      // — FTP, 5 km, CSS, pompes, tractions — ne seraient jamais mesurés).
+      startDate: nextMondayISO(), raceDate: null, // raceDate null => 48 semaines
       units: { weight: 'lb', distance: 'km' }
     },
     benchmarks: {
@@ -33,6 +37,15 @@ function emptyState() {
 export function todayISO(d = new Date()) {
   const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return z.toISOString().slice(0, 10);
+}
+
+// Prochain lundi (ou aujourd'hui si on est lundi). Sert d'ancre de départ.
+export function nextMondayISO(d = new Date()) {
+  const dow = (d.getDay() + 6) % 7;       // 0 = lundi
+  const add = dow === 0 ? 0 : 7 - dow;    // aujourd'hui si lundi, sinon le lundi suivant
+  const m = new Date(d);
+  m.setDate(m.getDate() + add);
+  return todayISO(m);
 }
 
 let _state = load();

@@ -100,11 +100,12 @@ export function sessionLoad(s) {
 export function dailyLoad(sessions, iso) {
   return sessions.filter((s) => s.date === iso).reduce((sum, s) => sum + sessionLoad(s), 0);
 }
-export function acwr(sessions, iso = todayISO()) {
+export function acwr(sessions, iso = todayISO(), types = null) {
+  const pool = types ? sessions.filter((s) => types.includes(s.type)) : sessions;
   let acute = 0, chronic = 0;
   for (let i = 0; i < 28; i++) {
     const d = addDays(iso, -i);
-    const load = dailyLoad(sessions, d);
+    const load = dailyLoad(pool, d);
     chronic += load;
     if (i < 7) acute += load;
   }
@@ -173,6 +174,10 @@ export function insights(state, iso = todayISO()) {
   const a = acwr(state.logs.sessions, iso);
   if (a.ratio > 1.4) out.push({ level: 'high', icon: '⚠️', msg: `Charge en hausse rapide (ACWR ${a.ratio}) : risque de blessure, on consolide.` });
   else if (a.ratio && a.ratio < 0.9) out.push({ level: 'info', icon: '🔵', msg: `Charge basse (ACWR ${a.ratio}) — tu as de la marge pour pousser un peu.` });
+  // Garde-fou course : c'est la discipline la plus traumatisante (tibias/tendons).
+  // On la surveille à part, car un ACWR global « ok » peut masquer une course qui monte trop vite.
+  const ra = acwr(state.logs.sessions, iso, ['run', 'brick']);
+  if (ra.ratio > 1.4 && ra.acuteAvg > 0) out.push({ level: 'high', icon: '🏃', msg: `Charge de COURSE en hausse rapide (ACWR course ${ra.ratio}) : c'est ta discipline la plus traumatisante. Ralentis la montée du volume de course même si le reste va bien (règle des +10%/sem max).` });
   const nut = lastN(state.logs.nutrition, iso, 3); const t = nutritionTarget(state, iso);
   if (nut.length >= 2 && t) { const avgP = nut.reduce((s, n) => s + (n.protein || 0), 0) / nut.length; if (avgP < t.proteinG * 0.8) out.push({ level: 'warn', icon: '🥩', msg: `Protéine basse (~${Math.round(avgP)} g/j vs ${t.proteinG} cible) : tu freines ta prise de muscle.` }); }
   const scores = lastN(state.logs.readiness, iso, 3).map((r) => readinessScore(state, r)).filter((x) => x != null);
@@ -439,7 +444,10 @@ export function bmr(state) {
   const kg = p.weightLb * 0.4536;
   // Mifflin-St Jeor
   const base = 10 * kg + 6.25 * p.heightCm - 5 * p.age + (p.sex === 'F' ? -161 : 5);
-  return Math.round(base * 1.45); // facteur d'activité modéré-élevé (étudiant + sport)
+  // Facteur NEAT seul (vie quotidienne, hors entraînement structuré) : l'énergie des
+  // séances est ajoutée explicitement dans nutritionTarget via endHours*400. Mettre
+  // ~1.45 ici reviendrait à compter l'entraînement deux fois.
+  return Math.round(base * 1.3);
 }
 export function nutritionTarget(state, iso = todayISO()) {
   const maintenance = bmr(state);
@@ -477,14 +485,16 @@ export function limiterAnalysis(state) {
   if (b.cssSec100) items.push(rank('Nage (CSS)', IM_TARGETS.swimCss100Sec / b.cssSec100, 1, `${Math.round(b.cssSec100)} s/100m`));
   if (p.weightLb && p.goalWeightLb) {
     const prog = p.weightLb / p.goalWeightLb;
-    items.push(rank('Poids/muscle', prog, 1, `${p.weightLb} → ${p.goalWeightLb} lb`));
+    // trainable=false : le poids se pilote par la nutrition, pas par l'emphase d'entraînement.
+    // On l'affiche pour le suivi mais il ne doit pas prendre la tête du classement « quoi prioriser ».
+    items.push(rank('Poids/muscle', prog, 1, `${p.weightLb} → ${p.goalWeightLb} lb`, false));
   }
   items.sort((a, b2) => a.score - b2.score);
   return items;
 }
-function rank(name, value, target, detail) {
+function rank(name, value, target, detail, trainable = true) {
   const score = round2(value / target);
-  return { name, score, detail, status: score >= 1 ? 'ok' : score >= 0.85 ? 'proche' : 'frein' };
+  return { name, score, detail, trainable, status: score >= 1 ? 'ok' : score >= 0.85 ? 'proche' : 'frein' };
 }
 
 /* ============ Revue hebdomadaire ============ */
@@ -508,7 +518,10 @@ export function buildWeeklyReview(state, weekIndex) {
   if (flag.level === 'low' && adherence >= 90) proposals.push({ id: 'push', type: 'ajouter', text: 'Tu encaisses bien : +10% sur la sortie longue la semaine prochaine.' });
   if (avgReadiness != null && avgReadiness < 0.8) proposals.push({ id: 'recovery', type: 'réduire', text: 'Readiness basse cette semaine : priorise sommeil, baisse l\'intensité.' });
   const limiters = limiterAnalysis(state);
-  if (limiters[0] && limiters[0].status === 'frein') proposals.push({ id: 'limiter', type: 'accent', text: `Maillon faible : ${limiters[0].name}. On met l'accent dessus la semaine prochaine.` });
+  // On ne propose une emphase d'entraînement que sur un limiteur entraînable (vélo/course/nage),
+  // pas sur le poids (qui se règle par la nutrition).
+  const trainableLimiter = limiters.find((l) => l.trainable !== false);
+  if (trainableLimiter && trainableLimiter.status === 'frein') proposals.push({ id: 'limiter', type: 'accent', text: `Maillon faible : ${trainableLimiter.name}. On met l'accent dessus la semaine prochaine.` });
   if (!proposals.length) proposals.push({ id: 'keep', type: 'garder', text: 'Tout est cohérent : on garde le cap et on progresse.' });
 
   return {
